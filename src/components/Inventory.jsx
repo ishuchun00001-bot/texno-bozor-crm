@@ -446,30 +446,32 @@ export default function Inventory({ products = [], onRefresh, loading, rates = D
                           {p.brand || "Brendsiz"}
                         </span>
                       </td>
-                      <td style={{ fontWeight: '500', color: 'var(--text-primary)' }}>
+                      <td style={{ fontWeight: '500', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
                         {p.model || "-"}
                       </td>
-                      <td style={{ fontWeight: '600' }}>{p.name}</td>
-                      <td style={{ color: 'var(--text-muted)', fontFamily: 'monospace' }}>{p.sku}</td>
-                      <td>
+                      <td style={{ fontWeight: '600', minWidth: '180px', whiteSpace: 'normal', color: '#fff' }}>
+                        {p.name}
+                      </td>
+                      <td style={{ color: 'var(--text-muted)', fontFamily: 'monospace', fontSize: '13px', whiteSpace: 'nowrap' }}>{p.sku}</td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
                         <span className="badge-category">{p.category}</span>
                       </td>
-                      <td style={{ fontWeight: '700', color: isLowStock ? 'var(--neon-red)' : 'var(--text-primary)' }}>
+                      <td style={{ fontWeight: '700', whiteSpace: 'nowrap', color: isLowStock ? 'var(--neon-red)' : 'var(--text-primary)' }}>
                         {p.stock} dona {isLowStock && '⚠️'}
                       </td>
-                      <td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
                         {formatPrimary(p.cost_price)}
                         <span className="currency-subtext">
                           {formatSecondary(p.cost_price)}
                         </span>
                       </td>
-                      <td style={{ color: 'var(--neon-blue)', fontWeight: '600' }}>
+                      <td style={{ color: 'var(--neon-blue)', fontWeight: '600', whiteSpace: 'nowrap' }}>
                         {formatPrimary(p.selling_price)}
                         <span className="currency-subtext" style={{ color: 'var(--text-secondary)' }}>
                           {formatSecondary(p.selling_price)}
                         </span>
                       </td>
-                      <td style={{ color: 'var(--neon-green)', fontWeight: '600' }}>
+                      <td style={{ color: 'var(--neon-green)', fontWeight: '600', whiteSpace: 'nowrap' }}>
                         +{formatPrimary(unitProfit)}
                         <span className="currency-subtext" style={{ color: 'var(--text-secondary)' }}>
                           +{formatSecondary(unitProfit)}

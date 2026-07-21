@@ -495,33 +495,38 @@ body {
 .table-container {
   overflow-x: auto;
   margin-top: 16px;
+  border-radius: 12px;
 }
 
 .custom-table {
   width: 100%;
+  min-width: 1250px;
   border-collapse: collapse;
   text-align: left;
 }
 
 .custom-table th {
-  padding: 16px;
+  padding: 14px 18px;
   color: var(--text-secondary);
   font-weight: 600;
-  font-size: 14px;
+  font-size: 13px;
   border-bottom: 1px solid var(--card-border);
+  white-space: nowrap;
+  letter-spacing: 0.3px;
 }
 
 .custom-table td {
-  padding: 16px;
+  padding: 14px 18px;
   font-size: 14px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  white-space: nowrap;
 }
 
 .custom-table tbody tr {
   transition: var(--transition-smooth);
 }
 .custom-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.015);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .table-img {
