@@ -28,21 +28,25 @@ ChartJS.register(
   Legend
 );
 
-export default function Analytics({ products = [], sales = [], saleItems = [], onRefresh, rates = DEFAULT_RATES, currency = 'USD' }) {
+export default function Analytics({ products = [], sales = [], saleItems = [], onRefresh, rates = DEFAULT_RATES, currency = 'USD', currentStore = 'all' }) {
   const [categoryChartData, setCategoryChartData] = useState(null);
   const [profitTrendData, setProfitTrendData] = useState(null);
 
   useEffect(() => {
+    // Current store filtri
+    const filteredProducts = (products || []).filter(p => p && (currentStore === 'all' || (p.store_type || 'texno') === currentStore));
+    const filteredSales = (sales || []).filter(s => s && (currentStore === 'all' || (s.store_type || 'texno') === currentStore));
+
     // 1. Kategoriyalar kesimida sotuvlar ulushi (Doughnut)
     const categoryQtyMap = {};
-    saleItems.forEach(item => {
-      const prod = products.find(p => p.id === item.product_id);
+    (saleItems || []).forEach(item => {
+      const prod = filteredProducts.find(p => p.id === item.product_id);
       if (prod) {
         const cat = prod.category || 'Boshqa';
         if (!categoryQtyMap[cat]) {
           categoryQtyMap[cat] = 0;
         }
-        categoryQtyMap[cat] += item.quantity;
+        categoryQtyMap[cat] += item.quantity || 0;
       }
     });
 
@@ -50,11 +54,11 @@ export default function Analytics({ products = [], sales = [], saleItems = [], o
     const catQuantities = catLabels.map(cat => categoryQtyMap[cat]);
 
     setCategoryChartData({
-      labels: catLabels,
+      labels: catLabels.length > 0 ? catLabels : ['Ma\'lumot yo\'q'],
       datasets: [
         {
-          data: catQuantities,
-          backgroundColor: ['#00f2fe', '#9b5de5', '#f15bb5', '#00f5d4', '#f15bb5', '#fee440'],
+          data: catQuantities.length > 0 ? catQuantities : [1],
+          backgroundColor: ['#00f2fe', '#9b5de5', '#f15bb5', '#00f5d4', '#fee440', '#ff3860'],
           borderColor: 'rgba(255,255,255,0.08)',
           borderWidth: 1
         }
@@ -62,11 +66,18 @@ export default function Analytics({ products = [], sales = [], saleItems = [], o
     });
 
     // 2. Daromad va Tannarx nisbati (Line)
-    const sortedSales = [...sales].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    const sortedSales = [...filteredSales].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     const trendMap = {};
 
     sortedSales.forEach(sale => {
-      const dateStr = new Date(sale.created_at).toLocaleDateString('uz-UZ', { month: 'short', day: 'numeric' });
+      let dateStr = 'Bugun';
+      try {
+        const d = new Date(sale.created_at);
+        if (!isNaN(d.getTime())) {
+          dateStr = d.toLocaleDateString('uz-UZ', { month: 'short', day: 'numeric' });
+        }
+      } catch (e) {}
+
       if (!trendMap[dateStr]) {
         trendMap[dateStr] = { revenue: 0, cost: 0, profit: 0 };
       }
