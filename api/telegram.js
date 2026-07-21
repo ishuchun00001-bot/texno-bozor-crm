@@ -24,6 +24,27 @@ async function sendMessage(chatId, text) {
   });
 }
 
+async function sendPhoto(chatId, photoUrl, caption) {
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendPhoto`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        photo: photoUrl,
+        caption: caption,
+        parse_mode: 'HTML'
+      }),
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      await sendMessage(chatId, caption);
+    }
+  } catch {
+    await sendMessage(chatId, caption);
+  }
+}
+
 async function getTelegramFileUrl(fileId) {
   const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/getFile?file_id=${fileId}`);
   const data = await res.json();
@@ -319,11 +340,31 @@ async function processIntent(chatId, intent, originalText) {
     case 'report': await handleReport(chatId, intent.store || 'all'); break;
     case 'find': {
       const found = await findProduct(intent.product_query);
-      if (!found.length) { await sendMessage(chatId, `😕 <b>"${intent.product_query}"</b> topilmadi.`); break; }
-      const list = found.map(p =>
-        `${p.stock === 0 ? '🔴' : p.stock <= 3 ? '🟡' : '🟢'} <b>${p.name}</b> — ${p.stock} dona | $${(p.selling_price || 0).toFixed(0)}`
-      ).join('\n');
-      await sendMessage(chatId, `🔍 <b>Topildi:</b>\n\n${list}`);
+      if (!found.length) {
+        await sendMessage(chatId, `😕 <b>"${intent.product_query}"</b> omborda topilmadi.`);
+        break;
+      }
+      for (const p of found.slice(0, 3)) {
+        const stockIcon = p.stock === 0 ? '🔴 TUGAGAN' : p.stock <= 3 ? '🟡 KAM QOLDI' : '🟢 ZAHIRADA BOR';
+        const priceUzs = Math.round((p.selling_price || 0) * 12800).toLocaleString();
+        const costUzs = Math.round((p.cost_price || 0) * 12800).toLocaleString();
+        const storeLabel = p.store_type === 'moto' ? '🏍️ Moto Bozor' : '⚡ Texno Bozor';
+
+        const caption =
+          `🔍 <b>TOVAR MA'LUMOTI (AI QIDIRUV)</b>\n\n` +
+          `📦 <b>${p.name}</b>\n` +
+          `🏷️ Brend: ${p.brand || '—'} | Model: ${p.model || '—'}\n` +
+          `🏪 Do'kon: ${storeLabel}\n` +
+          `📊 Ombor holati: <b>${stockIcon} (${p.stock} dona)</b>\n` +
+          `💰 Sotish Narxi: <b>$${(p.selling_price || 0).toFixed(0)}</b> (~${priceUzs} so'm)\n` +
+          `🏷️ Kirim Narxi: $${(p.cost_price || 0).toFixed(0)} (~${costUzs} so'm)`;
+
+        if (p.image_url && p.image_url.startsWith('http')) {
+          await sendPhoto(chatId, p.image_url, caption);
+        } else {
+          await sendMessage(chatId, caption);
+        }
+      }
       break;
     }
     default:
