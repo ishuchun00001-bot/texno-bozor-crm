@@ -336,6 +336,22 @@ async function processIntent(chatId, intent, originalText) {
 
 // === ASOSIY HANDLER ===
 export default async function handler(req, res) {
+  // Avtomatik Kunlik Hisobot (Har kuni soat 23:00 da Vercel Cron orqali)
+  const isCron = req.query?.cron === 'daily_report' || (req.url && req.url.includes('cron=daily_report'));
+  if (isCron) {
+    try {
+      for (const id of Array.from(ALLOWED_CHAT_IDS)) {
+        await handleReport(id, 'all');
+      }
+      res.status(200).json({ ok: true, message: "23:00 Kunlik hisobot yuborildi." });
+      return;
+    } catch (e) {
+      console.error("Cron report error:", e);
+      res.status(500).json({ ok: false, error: e.message });
+      return;
+    }
+  }
+
   if (req.method !== 'POST') { res.status(200).json({ ok: true }); return; }
 
   try {
