@@ -1259,3 +1259,38 @@ body {
   display: block;
 }
 
+/* ============================================================ */
+/* UI/UX IMPROVEMENTS: DOCK, SKELETON, MOBILE NAV, ANIMATIONS  */
+/* ============================================================ */
+
+/* Hide mobile bottom nav by default on desktop screens */
+.mobile-bottom-nav {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    display: none !important;
+  }
+  .mobile-bottom-nav {
+    display: flex !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 64px !important;
+    background: var(--bg-secondary) !important;
+    border-top: 1px solid var(--card-border) !important;
+    z-index: 9998 !important;
+    justify-content: space-around !important;
+    align-items: center !important;
+    backdrop-filter: blur(16px) !important;
+  }
+  .floating-dock-container {
+    bottom: 74px !important;
+  }
+  .main-content {
+    padding: 20px 16px 90px 16px !important;
+  }
+}
+
