@@ -518,7 +518,7 @@ export default function Debtors({
       {/* Modal 1: Yangi Nasiya Qo'shish */}
       {isModalOpen && createPortal(
         <div className="modal-overlay">
-          <div className="modal-content glass-card" style={{ maxWidth: '520px', width: '90%' }}>
+          <div className="modal-content glass-card" style={{ maxWidth: '560px', width: '90%', maxHeight: '85vh', overflowY: 'auto', padding: '24px' }}>
             <div className="modal-header">
               <h2>+ Yangi Nasiya Bitimi</h2>
               <button onClick={() => setIsModalOpen(false)} className="close-btn">&times;</button>
