@@ -359,40 +359,41 @@ function App() {
       {/* Cinematic logo watermark background */}
       <div style={{
         position: 'fixed',
-        bottom: '-5%',
-        right: '-5%',
-        width: '520px',
-        height: '520px',
+        bottom: '-80px',
+        right: '-80px',
+        width: '600px',
+        height: '600px',
         backgroundImage: 'url(/logo.png)',
         backgroundSize: 'contain',
         backgroundRepeat: 'no-repeat',
         backgroundPosition: 'center',
-        opacity: 0.04,
+        opacity: 0.12,
         pointerEvents: 'none',
         zIndex: 0,
-        filter: 'grayscale(30%) blur(0.5px)',
-        transform: 'rotate(-10deg)',
+        filter: 'blur(0.5px)',
+        transform: 'rotate(-8deg)',
       }} />
       <div style={{
         position: 'fixed',
-        top: '-8%',
-        left: '10%',
-        width: '340px',
-        height: '340px',
+        top: '-60px',
+        left: '280px',
+        width: '380px',
+        height: '380px',
         backgroundImage: 'url(/logo.png)',
         backgroundSize: 'contain',
         backgroundRepeat: 'no-repeat',
         backgroundPosition: 'center',
-        opacity: 0.025,
+        opacity: 0.06,
         pointerEvents: 'none',
         zIndex: 0,
-        filter: 'grayscale(50%) blur(1px)',
-        transform: 'rotate(8deg)',
+        filter: 'blur(1px)',
+        transform: 'rotate(6deg)',
       }} />
       {/* Background glowing bubbles */}
       <div className="ambient-glow glow-1"></div>
       <div className="ambient-glow glow-2"></div>
       <div className="ambient-glow glow-3"></div>
+
 
       {/* Sidebar Navigatsiya */}
       <aside className="sidebar no-print">
