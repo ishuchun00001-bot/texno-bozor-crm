@@ -1,15 +1,15 @@
 -- ================================================================
--- TEXNO & MOTO BOZOR CRM — SUPABASE DATABASE & SECURITY SETUP (RLS)
--- Run this script in the Supabase SQL Editor to secure your database!
+-- TEXNO & MOTO BOZOR CRM — SUPABASE DATABASE MIGRATION & SECURITY (RLS)
+-- Run this script in the Supabase SQL Editor to fix & secure your database!
 -- ================================================================
 
--- 1. PRODUCTS TABLE
+-- 1. CREATE TABLES IF NOT EXIST
 CREATE TABLE IF NOT EXISTS public.products (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     brand TEXT,
     model TEXT,
-    sku TEXT UNIQUE,
+    sku TEXT,
     category TEXT NOT NULL DEFAULT 'Smartfonlar',
     store_type TEXT NOT NULL DEFAULT 'texno',
     stock INTEGER NOT NULL DEFAULT 0,
@@ -20,7 +20,6 @@ CREATE TABLE IF NOT EXISTS public.products (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. SALES TABLE
 CREATE TABLE IF NOT EXISTS public.sales (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     store_type TEXT NOT NULL DEFAULT 'texno',
@@ -31,7 +30,6 @@ CREATE TABLE IF NOT EXISTS public.sales (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. SALE ITEMS TABLE
 CREATE TABLE IF NOT EXISTS public.sale_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     sale_id UUID REFERENCES public.sales(id) ON DELETE CASCADE,
@@ -43,7 +41,6 @@ CREATE TABLE IF NOT EXISTS public.sale_items (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. DEBTORS TABLE
 CREATE TABLE IF NOT EXISTS public.debtors (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     client_name TEXT NOT NULL,
@@ -63,13 +60,26 @@ CREATE TABLE IF NOT EXISTS public.debtors (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- RLS SECURITY
+-- 2. SAFE COLUMN ADDITIONS (Eski jadvallarga avtomatik ustunlar qo'shish)
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS store_type TEXT NOT NULL DEFAULT 'texno';
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS brand TEXT;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS model TEXT;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS sku TEXT;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS image_url TEXT;
+
+ALTER TABLE public.sales ADD COLUMN IF NOT EXISTS store_type TEXT NOT NULL DEFAULT 'texno';
+ALTER TABLE public.sales ADD COLUMN IF NOT EXISTS payment_method TEXT DEFAULT 'cash';
+
+ALTER TABLE public.debtors ADD COLUMN IF NOT EXISTS store_type TEXT NOT NULL DEFAULT 'texno';
+ALTER TABLE public.debtors ADD COLUMN IF NOT EXISTS notes TEXT;
+
+-- 3. ENABLE RLS SECURITY
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sales ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sale_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.debtors ENABLE ROW LEVEL SECURITY;
 
--- POLICIES
+-- 4. POLICIES
 DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.products;
 CREATE POLICY "Enable read access for authenticated users" ON public.products FOR SELECT USING (true);
 
@@ -97,7 +107,7 @@ CREATE POLICY "Enable insert for sale_items" ON public.sale_items FOR INSERT WIT
 DROP POLICY IF EXISTS "Enable all for debtors" ON public.debtors;
 CREATE POLICY "Enable all for debtors" ON public.debtors FOR ALL USING (true);
 
--- INDEXES
+-- 5. INDEXES FOR SPEED
 CREATE INDEX IF NOT EXISTS idx_products_store_type ON public.products(store_type);
 CREATE INDEX IF NOT EXISTS idx_products_category ON public.products(category);
 CREATE INDEX IF NOT EXISTS idx_sales_created_at ON public.sales(created_at);
