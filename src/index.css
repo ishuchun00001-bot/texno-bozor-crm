@@ -1124,3 +1124,151 @@ body::before {
   .main-content { margin-left: 0 !important; padding: 20px 16px 100px 16px !important; }
   .floating-dock-container { bottom: 80px !important; }
 }
+
+
+/* ================================================================
+   PRO MOTION & ANIMATION EXTENSIONS — APPLE x AWWWARDS LEVEL
+================================================================ */
+
+/* Gold Sheen Sweep on Primary Buttons */
+.btn-primary {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    60deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 70%
+  );
+  transform: rotate(30deg);
+  animation: goldSheen 6s infinite ease-in-out;
+  pointer-events: none;
+}
+
+@keyframes goldSheen {
+  0% { transform: translateX(-100%) rotate(30deg); }
+  20%, 100% { transform: translateX(100%) rotate(30deg); }
+}
+
+/* Pro Motion Page Fade & Scale Entrance */
+.page-fade-in {
+  animation: proPageFadeIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes proPageFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+    filter: blur(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+/* Staggered Element Entrance */
+.metrics-grid > div:nth-child(1) { animation-delay: 0.05s; }
+.metrics-grid > div:nth-child(2) { animation-delay: 0.1s; }
+.metrics-grid > div:nth-child(3) { animation-delay: 0.15s; }
+.metrics-grid > div:nth-child(4) { animation-delay: 0.2s; }
+
+.metric-card {
+  animation: proCardEntrance 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes proCardEntrance {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Dynamic Glowing Borders on Hover */
+.glass-card {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease !important;
+}
+
+.glass-card:hover {
+  transform: translateY(-4px) scale(1.008) !important;
+  border-color: rgba(212, 175, 55, 0.35) !important;
+  box-shadow: 
+    0 20px 50px rgba(0, 0, 0, 0.6),
+    0 0 30px rgba(212, 175, 55, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Floating Ambient Glow Motion */
+.ambient-glow {
+  animation: floatGlowPro 18s ease-in-out infinite alternate !important;
+}
+
+@keyframes floatGlowPro {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translate(40px, -30px) scale(1.1);
+    opacity: 0.65;
+  }
+  100% {
+    transform: translate(-30px, 20px) scale(0.95);
+    opacity: 0.4;
+  }
+}
+
+/* Smooth Table Row Animations */
+.custom-table tbody tr {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease !important;
+}
+
+.custom-table tbody tr:hover {
+  background: rgba(212, 175, 55, 0.05) !important;
+  transform: scale(1.003) translateX(3px) !important;
+}
+
+/* Floating Dock Magnify & Glow */
+.floating-dock-container button {
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease !important;
+}
+
+.floating-dock-container button:hover {
+  transform: translateY(-4px) scale(1.08) !important;
+  box-shadow: 0 8px 24px rgba(212, 175, 55, 0.3) !important;
+}
+
+.floating-dock-container button:active {
+  transform: translateY(0) scale(0.95) !important;
+}
+
+/* Shimmer Effect for Loading States */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.02) 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmerGlow 2s infinite linear;
+}
+
+@keyframes shimmerGlow {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
