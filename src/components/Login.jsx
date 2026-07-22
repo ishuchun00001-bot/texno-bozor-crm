@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { hashString, TARGET_HASH, createSecureSession } from '../utils/security';
 
-// 'Texnoilhom123' ning SHA-256 xeshi
-const TARGET_HASH = 'e1d04334348d2f9bd3804a9e1424c5368174ae744ff654a5945ee3877cee63d7';
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_TIME = 15 * 60 * 1000; // 15 daqiqa (millisekundlarda)
 
@@ -55,15 +54,6 @@ export default function Login({ onLoginSuccess }) {
     return () => clearInterval(interval);
   }, [lockoutTime]);
 
-  // SHA-256 xesh hisoblash funksiyasi
-  const hashPassword = async (str) => {
-    const utf8 = new TextEncoder().encode(str);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', utf8);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    return hashHex;
-  };
-
   const handleLogin = async (e) => {
     e.preventDefault();
     if (lockoutTime) return;
@@ -71,12 +61,13 @@ export default function Login({ onLoginSuccess }) {
     setError('');
 
     try {
-      const inputHash = await hashPassword(password);
+      const inputHash = await hashString(password);
 
       if (inputHash === TARGET_HASH) {
-        // Tizimga muvaffaqiyatli kirildi
+        // Tizimga muvaffaqiyatli kirildi va kriptografik sessiya yaratildi
         localStorage.setItem('login_attempts', '0');
         localStorage.removeItem('lockout_until');
+        await createSecureSession('admin');
         onLoginSuccess();
       } else {
         const nextAttempts = attempts + 1;

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { obfuscateSecret, deobfuscateSecret } from '../utils/security';
 
 const DEFAULT_BOT_TOKEN = '8758536316:AAEYTolW74kyL_CB5HPvbxz1WPqC87qr-5U';
 const DEFAULT_CHAT_IDS = '658069248, 186055944'; // Salomov & Ilhom
@@ -13,7 +14,11 @@ export const sendTelegramNotification = async (messageText) => {
 
     if (saved) {
       const settings = JSON.parse(saved);
-      if (settings.botToken) botToken = settings.botToken;
+      if (settings.botTokenEncrypted) {
+        botToken = deobfuscateSecret(settings.botTokenEncrypted);
+      } else if (settings.botToken) {
+        botToken = settings.botToken;
+      }
       if (settings.chatId) chatIdString = settings.chatId;
     }
 
@@ -72,7 +77,8 @@ export default function TelegramSettingsModal({ isOpen, onClose }) {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        setBotToken(parsed.botToken || DEFAULT_BOT_TOKEN);
+        const token = parsed.botTokenEncrypted ? deobfuscateSecret(parsed.botTokenEncrypted) : (parsed.botToken || DEFAULT_BOT_TOKEN);
+        setBotToken(token);
         setChatId(parsed.chatId || DEFAULT_CHAT_IDS);
         setNotifySale(parsed.notifySale !== false);
         setNotifyLowStock(parsed.notifyLowStock !== false);
@@ -89,8 +95,9 @@ export default function TelegramSettingsModal({ isOpen, onClose }) {
 
   const handleSave = (e) => {
     e.preventDefault();
+    const rawToken = botToken.trim() || DEFAULT_BOT_TOKEN;
     const settings = {
-      botToken: botToken.trim() || DEFAULT_BOT_TOKEN,
+      botTokenEncrypted: obfuscateSecret(rawToken),
       chatId: chatId.trim(),
       notifySale,
       notifyLowStock

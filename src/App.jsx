@@ -13,6 +13,7 @@ import { ToastProvider, useToast } from './components/Toast';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { mockProducts, generateMockSales } from './utils/mockData';
 import { DEFAULT_RATES, fetchExchangeRates } from './utils/currency';
+import { validateSecureSession, clearSecureSession } from './utils/security';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -33,6 +34,7 @@ class ErrorBoundary extends React.Component {
     localStorage.removeItem('local_sales');
     localStorage.removeItem('local_sale_items');
     localStorage.removeItem('local_db_seeded');
+    clearSecureSession();
     window.location.reload();
   };
 
@@ -113,10 +115,12 @@ function App() {
 
   // Login va Valyuta kurslari holatini tekshirish
   useEffect(() => {
-    const loggedIn = localStorage.getItem('is_logged_in') === 'true';
-    if (loggedIn) {
-      setIsAuthenticated(true);
-    }
+    const checkAuth = async () => {
+      const isValid = await validateSecureSession();
+      setIsAuthenticated(isValid);
+    };
+    checkAuth();
+
     const savedCurrency = localStorage.getItem('active_currency');
     if (savedCurrency) {
       setCurrency(savedCurrency);
@@ -153,12 +157,11 @@ function App() {
   }, []);
 
   const handleLoginSuccess = () => {
-    localStorage.setItem('is_logged_in', 'true');
     setIsAuthenticated(true);
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('is_logged_in');
+    clearSecureSession();
     setIsAuthenticated(false);
   };
 
