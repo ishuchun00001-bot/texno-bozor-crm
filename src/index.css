@@ -417,7 +417,7 @@ body::before {
   flex-grow: 1;
   margin-left: var(--sidebar-width);
   min-width: 0;
-  padding: 36px 40px;
+  padding: 36px 40px 140px 40px;
   min-height: 100vh;
   box-sizing: border-box;
   position: relative;
