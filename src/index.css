@@ -179,6 +179,7 @@ body {
 /* Sidebar Styling (PRO Executive Glass) */
 .sidebar {
   width: 280px;
+  flex-shrink: 0;
   background: rgba(10, 12, 26, 0.9);
   backdrop-filter: blur(30px);
   -webkit-backdrop-filter: blur(30px);
@@ -191,6 +192,8 @@ body {
   position: sticky;
   top: 0;
   z-index: 10;
+  box-sizing: border-box;
+  overflow-y: auto;
 }
 
 .sidebar-logo {
@@ -277,9 +280,10 @@ body {
 /* Main Content Area */
 .main-content {
   flex-grow: 1;
+  min-width: 0;
   padding: 40px;
-  max-height: 100vh;
-  overflow-y: auto;
+  min-height: 100vh;
+  box-sizing: border-box;
   position: relative;
   z-index: 1;
 }
