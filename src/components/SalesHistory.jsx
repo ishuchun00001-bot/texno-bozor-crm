@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import { formatCurrency, DEFAULT_RATES } from '../utils/currency';
+import { useToast } from './Toast';
 
 export default function SalesHistory({
   sales = [],
@@ -12,6 +13,7 @@ export default function SalesHistory({
   currency = 'USD',
   currentStore = 'all',
 }) {
+  const toast = useToast();
   const [filterPeriod, setFilterPeriod] = useState('all'); // 'today','week','month','all'
   const [filterStore, setFilterStore] = useState(currentStore);
   const [searchQuery, setSearchQuery] = useState('');
@@ -82,10 +84,11 @@ export default function SalesHistory({
         localStorage.setItem('local_sales', JSON.stringify(localSales.filter(s => s.id !== saleId)));
         localStorage.setItem('local_sale_items', JSON.stringify(localItems.filter(i => i.sale_id !== saleId)));
       }
+      toast.success("Sotuv muvaffaqiyatli o'chirildi! ✅");
       onRefresh();
     } catch (err) {
       console.error(err);
-      alert('O\'chirishda xatolik: ' + err.message);
+      toast.error('O\'chirishda xatolik: ' + err.message);
     } finally {
       setIsDeleting(null);
     }

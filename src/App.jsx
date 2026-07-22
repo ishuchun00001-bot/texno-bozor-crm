@@ -81,6 +81,7 @@ class ErrorBoundary extends React.Component {
 }
 
 function App() {
+  const toast = useToast();
   const [currentStore, setCurrentStore] = useState('all'); // 'all', 'texno', 'moto'
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard', 'inventory', 'sales', 'debtors', 'calculator', 'analytics'
@@ -187,7 +188,7 @@ function App() {
       localStorage.setItem('exchange_rates', JSON.stringify(fetchedRates));
       setRatesStatus('synced');
     } catch (err) {
-      alert("Valyuta kurslarini yangilashda xatolik yuz berdi: " + err.message);
+      toast.error("Valyuta kurslarini yangilashda xatolik yuz berdi: " + err.message);
       setRatesStatus('error');
     } finally {
       setRatesLoading(false);

@@ -14,6 +14,7 @@ import {
 } from 'chart.js';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import { DEFAULT_RATES } from '../utils/currency';
+import { useToast } from './Toast';
 
 // Chart.js components registration for Analytics page
 ChartJS.register(
@@ -29,6 +30,7 @@ ChartJS.register(
 );
 
 export default function Analytics({ products = [], sales = [], saleItems = [], onRefresh, rates = DEFAULT_RATES, currency = 'USD', currentStore = 'all' }) {
+  const toast = useToast();
   const [categoryChartData, setCategoryChartData] = useState(null);
   const [profitTrendData, setProfitTrendData] = useState(null);
 
@@ -140,8 +142,9 @@ export default function Analytics({ products = [], sales = [], saleItems = [], o
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
+      toast.success("Zaxira nusxasi muvaffaqiyatli yuklab olindi! 📥");
     } catch (err) {
-      alert("Zaxiralashda xatolik: " + err.message);
+      toast.error("Zaxiralashda xatolik: " + err.message);
     }
   };
 
@@ -160,7 +163,7 @@ export default function Analytics({ products = [], sales = [], saleItems = [], o
 
         if (isSupabaseConfigured()) {
           // Supabase da tiklash
-          alert("Eslatma: Supabase online ma'lumotlarini qayta yozish cheklangan. Offline rejimni tiklashingiz mumkin.");
+          toast.warning("Eslatma: Supabase online ma'lumotlarini qayta yozish cheklangan. Offline rejimni tiklashingiz mumkin.");
         } else {
           // LocalStorage rejimida tiklash
           localStorage.setItem('local_products', JSON.stringify(data.products));
@@ -168,11 +171,11 @@ export default function Analytics({ products = [], sales = [], saleItems = [], o
           localStorage.setItem('local_sale_items', JSON.stringify(data.sale_items || []));
           localStorage.setItem('local_db_seeded', 'true');
           
-          alert("Lokal ma'lumotlar zaxiradan muvaffaqiyatli tiklandi! ✅");
+          toast.success("Lokal ma'lumotlar zaxiradan muvaffaqiyatli tiklandi! ✅");
           onRefresh();
         }
       } catch (err) {
-        alert("Tiklashda xatolik yuz berdi: " + err.message);
+        toast.error("Tiklashda xatolik yuz berdi: " + err.message);
       }
     };
     reader.readAsText(file);
