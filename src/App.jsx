@@ -90,6 +90,7 @@ function App() {
   const [ratesLoading, setRatesLoading] = useState(false);
   const [ratesStatus, setRatesStatus] = useState('syncing'); // 'syncing', 'synced', 'error'
   const [isTelegramModalOpen, setIsTelegramModalOpen] = useState(false);
+  const [isRatesExpanded, setIsRatesExpanded] = useState(false);
 
   // Theme almashtirish handler
   const handleToggleTheme = () => {
@@ -491,8 +492,8 @@ function App() {
           </ul>
         </div>
 
-        <div className="sidebar-rate" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid var(--card-border)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="sidebar-rate" style={{ display: 'flex', flexDirection: 'column', gap: isRatesExpanded ? '12px' : '4px', padding: '10px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid var(--card-border)', cursor: 'pointer', transition: 'all 0.2s ease' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onClick={() => setIsRatesExpanded(!isRatesExpanded)}>
             <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span className={`status-dot ${ratesStatus}`} style={{
                 width: '8px',
@@ -502,84 +503,93 @@ function App() {
                 background: ratesStatus === 'synced' ? 'var(--neon-green)' : ratesStatus === 'syncing' ? '#fee440' : 'var(--neon-red)',
                 boxShadow: ratesStatus === 'synced' ? '0 0 8px var(--neon-green)' : ratesStatus === 'syncing' ? '0 0 8px #fee440' : '0 0 8px var(--neon-red)'
               }}></span>
-              Valyuta Kurslari
+              {isRatesExpanded ? 'Valyuta Kurslari' : `$1 = ${Math.round(rates.UZS || 12800).toLocaleString()} SO'M`}
             </span>
-            <button 
-              onClick={refreshRates}
-              disabled={ratesLoading}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--neon-blue)',
-                cursor: 'pointer',
-                fontSize: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                animation: ratesLoading ? 'spin 1s linear infinite' : 'none'
-              }}
-              title="Kurslarni yangilash"
-            >
-              🔄
-            </button>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>🇺🇸 USD ($1)</span>
-              <input
-                type="number"
-                className="form-control"
-                value={Math.round(rates.UZS)}
-                onChange={(e) => handleRateChange('USD', e.target.value)}
-                style={{ width: '80px', padding: '3px 6px', fontSize: '11px', textAlign: 'right', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--card-border)', color: '#fff', borderRadius: '4px' }}
-              />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>🇪🇺 EUR (€1)</span>
-              <input
-                type="number"
-                className="form-control"
-                value={Math.round(rates.UZS / rates.EUR)}
-                onChange={(e) => handleRateChange('EUR', e.target.value)}
-                style={{ width: '80px', padding: '3px 6px', fontSize: '11px', textAlign: 'right', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--card-border)', color: '#fff', borderRadius: '4px' }}
-              />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>🇷🇺 RUB (₽1)</span>
-              <input
-                type="number"
-                className="form-control"
-                value={Math.round(rates.UZS / rates.RUB)}
-                onChange={(e) => handleRateChange('RUB', e.target.value)}
-                style={{ width: '80px', padding: '3px 6px', fontSize: '11px', textAlign: 'right', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--card-border)', color: '#fff', borderRadius: '4px' }}
-              />
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
-            <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '600' }}>Faol Valyuta:</label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', background: 'rgba(0, 0, 0, 0.2)', padding: '2px', borderRadius: '8px', border: '1px solid var(--card-border)' }}>
-              {['USD', 'UZS', 'EUR', 'RUB'].map((currKey) => (
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              {isRatesExpanded && (
                 <button 
-                  key={currKey}
-                  onClick={() => handleCurrencyChange(currKey)}
+                  onClick={(e) => { e.stopPropagation(); refreshRates(); }}
+                  disabled={ratesLoading}
                   style={{
-                    padding: '5px 2px',
-                    borderRadius: '6px',
+                    background: 'transparent',
                     border: 'none',
-                    background: currency === currKey ? 'linear-gradient(135deg, var(--neon-blue) 0%, var(--neon-purple) 100%)' : 'transparent',
-                    color: currency === currKey ? '#fff' : 'var(--text-secondary)',
-                    fontWeight: '700',
-                    fontSize: '10px',
+                    color: 'var(--neon-blue)',
                     cursor: 'pointer',
-                    transition: 'var(--transition-smooth)'
+                    fontSize: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    animation: ratesLoading ? 'spin 1s linear infinite' : 'none'
                   }}
+                  title="Kurslarni yangilash"
                 >
-                  {currKey}
+                  🔄
                 </button>
-              ))}
+              )}
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{isRatesExpanded ? '▲' : '▼'}</span>
             </div>
           </div>
+
+          {isRatesExpanded && (
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>🇺🇸 USD ($1)</span>
+                  <input
+                    type="number"
+                    className="form-control"
+                    value={Math.round(rates.UZS)}
+                    onChange={(e) => handleRateChange('USD', e.target.value)}
+                    style={{ width: '80px', padding: '3px 6px', fontSize: '11px', textAlign: 'right', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--card-border)', color: '#fff', borderRadius: '4px' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>🇪🇺 EUR (€1)</span>
+                  <input
+                    type="number"
+                    className="form-control"
+                    value={Math.round(rates.UZS / rates.EUR)}
+                    onChange={(e) => handleRateChange('EUR', e.target.value)}
+                    style={{ width: '80px', padding: '3px 6px', fontSize: '11px', textAlign: 'right', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--card-border)', color: '#fff', borderRadius: '4px' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>🇷🇺 RUB (₽1)</span>
+                  <input
+                    type="number"
+                    className="form-control"
+                    value={Math.round(rates.UZS / rates.RUB)}
+                    onChange={(e) => handleRateChange('RUB', e.target.value)}
+                    style={{ width: '80px', padding: '3px 6px', fontSize: '11px', textAlign: 'right', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--card-border)', color: '#fff', borderRadius: '4px' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
+                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '600' }}>Faol Valyuta:</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', background: 'rgba(0, 0, 0, 0.2)', padding: '2px', borderRadius: '8px', border: '1px solid var(--card-border)' }}>
+                  {['USD', 'UZS', 'EUR', 'RUB'].map((currKey) => (
+                    <button 
+                      key={currKey}
+                      onClick={() => handleCurrencyChange(currKey)}
+                      style={{
+                        padding: '5px 2px',
+                        borderRadius: '6px',
+                        border: 'none',
+                        background: currency === currKey ? 'linear-gradient(135deg, var(--neon-blue) 0%, var(--neon-purple) 100%)' : 'transparent',
+                        color: currency === currKey ? '#fff' : 'var(--text-secondary)',
+                        fontWeight: '700',
+                        fontSize: '10px',
+                        cursor: 'pointer',
+                        transition: 'var(--transition-smooth)'
+                      }}
+                    >
+                      {currKey}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="sidebar-footer">
