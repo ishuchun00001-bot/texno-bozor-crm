@@ -197,9 +197,10 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  height: 100vh;
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  bottom: 0;
   z-index: 10;
   box-sizing: border-box;
   overflow-y: auto;
@@ -295,6 +296,7 @@ body {
 /* Main Content Area */
 .main-content {
   flex-grow: 1;
+  margin-left: 260px;
   min-width: 0;
   padding: 40px;
   min-height: 100vh;
@@ -1287,6 +1289,7 @@ body {
     bottom: 74px !important;
   }
   .main-content {
+    margin-left: 0 !important;
     padding: 20px 16px 90px 16px !important;
   }
 }
