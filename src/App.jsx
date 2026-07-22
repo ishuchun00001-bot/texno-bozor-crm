@@ -356,6 +356,39 @@ function App() {
 
   return (
     <div className="app-container">
+      {/* Cinematic logo watermark background */}
+      <div style={{
+        position: 'fixed',
+        bottom: '-5%',
+        right: '-5%',
+        width: '520px',
+        height: '520px',
+        backgroundImage: 'url(/logo.png)',
+        backgroundSize: 'contain',
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'center',
+        opacity: 0.04,
+        pointerEvents: 'none',
+        zIndex: 0,
+        filter: 'grayscale(30%) blur(0.5px)',
+        transform: 'rotate(-10deg)',
+      }} />
+      <div style={{
+        position: 'fixed',
+        top: '-8%',
+        left: '10%',
+        width: '340px',
+        height: '340px',
+        backgroundImage: 'url(/logo.png)',
+        backgroundSize: 'contain',
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'center',
+        opacity: 0.025,
+        pointerEvents: 'none',
+        zIndex: 0,
+        filter: 'grayscale(50%) blur(1px)',
+        transform: 'rotate(8deg)',
+      }} />
       {/* Background glowing bubbles */}
       <div className="ambient-glow glow-1"></div>
       <div className="ambient-glow glow-2"></div>
@@ -364,8 +397,56 @@ function App() {
       {/* Sidebar Navigatsiya */}
       <aside className="sidebar no-print">
         <div>
-          <div className="sidebar-logo">
-            <span>⚡ Texno & 🏍️ Moto</span>
+          <div className="sidebar-logo" style={{ padding: '0 0 20px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', marginBottom: '18px' }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              padding: '0 4px',
+            }}>
+              <div style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '12px',
+                overflow: 'hidden',
+                flexShrink: 0,
+                border: '1px solid rgba(212,175,55,0.2)',
+                boxShadow: '0 0 16px rgba(212,175,55,0.15)',
+                background: '#050810',
+              }}>
+                <img
+                  src="/logo.png"
+                  alt="Texno Moto Bozor"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    objectPosition: 'center 30%',
+                    display: 'block',
+                  }}
+                />
+              </div>
+              <div style={{ lineHeight: 1.2 }}>
+                <div style={{
+                  fontFamily: 'var(--font-display)',
+                  fontSize: '13px',
+                  fontWeight: '800',
+                  background: 'linear-gradient(135deg, #f0d060 0%, #d4af37 60%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                  letterSpacing: '-0.3px',
+                }}>TEXNO MOTO</div>
+                <div style={{
+                  fontSize: '10px',
+                  color: 'var(--text-muted)',
+                  fontWeight: '600',
+                  letterSpacing: '1.5px',
+                  textTransform: 'uppercase',
+                  marginTop: '1px',
+                }}>BOZOR CRM</div>
+              </div>
+            </div>
           </div>
 
           {/* Do'kon Almashtirgich (Store Switcher) */}
