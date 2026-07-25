@@ -12,11 +12,11 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
-import { supabase, isSupabaseConfigured } from '../supabaseClient';
+import { RefreshCw, PieChart, TrendingUp } from 'lucide-react';
 import { DEFAULT_RATES } from '../utils/currency';
-import { useToast } from './Toast';
+import Button from './ui/Button';
+import Card from './ui/Card';
 
-// Chart.js components registration for Analytics page
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -29,17 +29,22 @@ ChartJS.register(
   Legend
 );
 
-export default function Analytics({ products = [], sales = [], saleItems = [], onRefresh, rates = DEFAULT_RATES, currency = 'USD', currentStore = 'all' }) {
-  const toast = useToast();
+export default function Analytics({ 
+  products = [], 
+  sales = [], 
+  saleItems = [], 
+  onRefresh, 
+  rates = DEFAULT_RATES, 
+  currency = 'USD', 
+  currentStore = 'all' 
+}) {
   const [categoryChartData, setCategoryChartData] = useState(null);
   const [profitTrendData, setProfitTrendData] = useState(null);
 
   useEffect(() => {
-    // Current store filtri
     const filteredProducts = (products || []).filter(p => p && (currentStore === 'all' || (p.store_type || 'texno') === currentStore));
     const filteredSales = (sales || []).filter(s => s && (currentStore === 'all' || (s.store_type || 'texno') === currentStore));
 
-    // 1. Kategoriyalar kesimida sotuvlar ulushi (Doughnut)
     const categoryQtyMap = {};
     (saleItems || []).forEach(item => {
       const prod = filteredProducts.find(p => p.id === item.product_id);
@@ -60,14 +65,13 @@ export default function Analytics({ products = [], sales = [], saleItems = [], o
       datasets: [
         {
           data: catQuantities.length > 0 ? catQuantities : [1],
-          backgroundColor: ['#00f2fe', '#9b5de5', '#f15bb5', '#00f5d4', '#fee440', '#ff3860'],
+          backgroundColor: ['#6366f1', '#eab308', '#ec4899', '#10b981', '#f59e0b', '#3b82f6'],
           borderColor: 'rgba(255,255,255,0.08)',
           borderWidth: 1
         }
       ]
     });
 
-    // 2. Daromad va Tannarx nisbati (Line)
     const sortedSales = [...filteredSales].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     const trendMap = {};
 
@@ -78,202 +82,114 @@ export default function Analytics({ products = [], sales = [], saleItems = [], o
         if (!isNaN(d.getTime())) {
           dateStr = d.toLocaleDateString('uz-UZ', { month: 'short', day: 'numeric' });
         }
-      } catch (e) {}
+      } catch {}
 
       if (!trendMap[dateStr]) {
-        trendMap[dateStr] = { revenue: 0, cost: 0, profit: 0 };
+        trendMap[dateStr] = { rev: 0, cost: 0 };
       }
-      trendMap[dateStr].revenue += parseFloat(sale.total_amount) || 0;
+      trendMap[dateStr].rev += parseFloat(sale.total_amount) || 0;
       trendMap[dateStr].cost += parseFloat(sale.total_cost) || 0;
-      trendMap[dateStr].profit += parseFloat(sale.profit) || 0;
     });
 
     const trendLabels = Object.keys(trendMap);
     const scale = rates[currency] || 1;
-    
+
     setProfitTrendData({
       labels: trendLabels,
       datasets: [
         {
-          label: `Sotuv Summasi (${currency})`,
-          data: trendLabels.map(l => Math.round((trendMap[l].revenue || 0) * scale)),
-          borderColor: '#00f2fe',
-          backgroundColor: 'transparent',
-          tension: 0.2
+          label: `Tushum (${currency})`,
+          data: trendLabels.map(k => Math.round(trendMap[k].rev * scale)),
+          borderColor: '#6366f1',
+          backgroundColor: 'rgba(99, 102, 241, 0.1)',
+          fill: true,
+          tension: 0.35
         },
         {
-          label: `Sotib Olingan Narxi (${currency})`,
-          data: trendLabels.map(l => Math.round((trendMap[l].cost || 0) * scale)),
-          borderColor: '#f15bb5',
-          backgroundColor: 'transparent',
-          tension: 0.2
-        },
-        {
-          label: `Sof Foyda (${currency})`,
-          data: trendLabels.map(l => Math.round((trendMap[l].profit || 0) * scale)),
-          borderColor: '#00f5d4',
-          backgroundColor: 'rgba(0, 245, 212, 0.05)',
-          tension: 0.2,
-          fill: true
+          label: `Tannarx (${currency})`,
+          data: trendLabels.map(k => Math.round(trendMap[k].cost * scale)),
+          borderColor: '#ef4444',
+          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+          fill: true,
+          tension: 0.35
         }
       ]
     });
-
-  }, [products, sales, saleItems, currency, rates]);
-
-  // Ma'lumotlarni zaxira (Backup) qilish (JSON shaklida yuklab olish)
-  const handleBackup = () => {
-    try {
-      const backupData = {
-        products: isSupabaseConfigured() ? products : JSON.parse(localStorage.getItem('local_products') || '[]'),
-        sales: isSupabaseConfigured() ? sales : JSON.parse(localStorage.getItem('local_sales') || '[]'),
-        sale_items: isSupabaseConfigured() ? saleItems : JSON.parse(localStorage.getItem('local_sale_items') || '[]'),
-        exported_at: new Date().toISOString()
-      };
-
-      const jsonStr = JSON.stringify(backupData, null, 2);
-      const blob = new Blob([jsonStr], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `texnobozor_backup_${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      toast.success("Zaxira nusxasi muvaffaqiyatli yuklab olindi! 📥");
-    } catch (err) {
-      toast.error("Zaxiralashda xatolik: " + err.message);
-    }
-  };
-
-  // Ma'lumotlarni tiklash (Restore)
-  const handleRestore = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        const data = JSON.parse(event.target.result);
-        if (!data.products || !data.sales) {
-          throw new Error("Noto'g'ri zaxira fayl formati!");
-        }
-
-        if (isSupabaseConfigured()) {
-          // Supabase da tiklash
-          toast.warning("Eslatma: Supabase online ma'lumotlarini qayta yozish cheklangan. Offline rejimni tiklashingiz mumkin.");
-        } else {
-          // LocalStorage rejimida tiklash
-          localStorage.setItem('local_products', JSON.stringify(data.products));
-          localStorage.setItem('local_sales', JSON.stringify(data.sales));
-          localStorage.setItem('local_sale_items', JSON.stringify(data.sale_items || []));
-          localStorage.setItem('local_db_seeded', 'true');
-          
-          toast.success("Lokal ma'lumotlar zaxiradan muvaffaqiyatli tiklandi! ✅");
-          onRefresh();
-        }
-      } catch (err) {
-        toast.error("Tiklashda xatolik yuz berdi: " + err.message);
-      }
-    };
-    reader.readAsText(file);
-  };
+  }, [products, sales, saleItems, currentStore, currency, rates]);
 
   return (
-    <div className="page-fade-in">
-      <div className="page-header">
-        <div className="page-title">
-          <h1>Tahlil va Statistika</h1>
-          <p>Kategoriyalar tahlili, sotuvlar rentabelligi va ma'lumotlar zaxirasi</p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+        <div>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '24px', fontWeight: '800', color: 'var(--text-primary)' }}>
+            Tahlillar va Hisobotlar
+          </h1>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px' }}>
+            Savdo dinamikasi, kategoriya ulushi va daromadlar tahlili
+          </p>
         </div>
+
+        <Button variant="secondary" size="sm" onClick={onRefresh}>
+          <RefreshCw size={14} /> Ma'lumotlarni Yangilash
+        </Button>
       </div>
 
-      <div className="dashboard-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
-        {/* Kategoriya tahlili */}
-        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '20px', width: '100%' }}>Kategoriyalar kesimida savdo ulushi</h3>
-          <div style={{ width: '100%', height: '280px', position: 'relative' }}>
-            {categoryChartData ? (
+      {/* Main Charts Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '20px' }}>
+        {/* Category Doughnut Chart */}
+        <Card 
+          title={
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <PieChart size={18} style={{ color: 'var(--brand-accent)' }} />
+              Kategoriyalar Ulushi
+            </span>
+          }
+        >
+          <div style={{ height: '280px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {categoryChartData && (
               <Doughnut
                 data={categoryChartData}
                 options={{
                   responsive: true,
                   maintainAspectRatio: false,
                   plugins: {
-                    legend: {
-                      position: 'bottom',
-                      labels: { color: '#94a3b8', font: { family: 'Outfit' } }
-                    }
+                    legend: { position: 'bottom', labels: { color: '#94a3b8', font: { family: 'Inter' } } }
                   }
                 }}
               />
-            ) : (
-              <div style={{ textAlign: 'center', color: 'var(--text-muted)', paddingTop: '100px' }}>Yuklanmoqda...</div>
             )}
           </div>
-        </div>
+        </Card>
 
-        {/* Ma'lumotlarni zaxiralash */}
-        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          <div>
-            <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '16px' }}>Ma'lumotlar Boshqaruvi va Zaxira</h3>
-            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '20px', lineHeight: '1.6' }}>
-              CRM ma'lumotlar xavfsizligini ta'minlash uchun joriy tovarlar ro'yxati va sotuv hisobotlarini JSON formatida yuklab olishingiz mumkin. Keyinchalik ushbu fayl yordamida ma'lumotlarni qayta tiklash imkoniyati mavjud.
-            </p>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <button onClick={handleBackup} className="btn-primary" style={{ justifyContent: 'center' }}>
-              📥 Ma'lumotlarni zaxiralash (Backup JSON)
-            </button>
-            
-            <div style={{ position: 'relative' }}>
-              <input
-                type="file"
-                id="restore-file-input"
-                accept=".json"
-                style={{ display: 'none' }}
-                onChange={handleRestore}
-              />
-              <button 
-                onClick={() => document.getElementById('restore-file-input').click()} 
-                className="btn-secondary" 
-                style={{ width: '100%', justifyContent: 'center' }}
-              >
-                📤 Zaxiradan tiklash (Restore JSON)
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Savdo rentabelligi line grafigi */}
-      <div className="glass-card chart-card" style={{ marginTop: '24px', minHeight: '380px' }}>
-        <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '20px' }}>Sotuv, Tannarx va Sof Foyda nisbati</h3>
-        <div className="chart-container">
-          {profitTrendData ? (
-            <Line
-              data={profitTrendData}
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                  legend: {
-                    labels: { color: '#94a3b8', font: { family: 'Outfit' } }
+        {/* Revenue vs Cost Line Chart */}
+        <Card 
+          title={
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <TrendingUp size={18} style={{ color: 'var(--brand-gold)' }} />
+              Tushum va Tannarx Solishtirmasi
+            </span>
+          }
+        >
+          <div style={{ height: '280px' }}>
+            {profitTrendData && (
+              <Line
+                data={profitTrendData}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: { position: 'top', labels: { color: '#94a3b8', font: { family: 'Inter' } } }
+                  },
+                  scales: {
+                    x: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#94a3b8' } },
+                    y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#94a3b8' } }
                   }
-                },
-                scales: {
-                  x: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#94a3b8' } },
-                  y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#94a3b8' } }
-                }
-              }}
-            />
-          ) : (
-            <div style={{ textAlign: 'center', color: 'var(--text-muted)', paddingTop: '100px' }}>Yuklanmoqda...</div>
-          )}
-        </div>
+                }}
+              />
+            )}
+          </div>
+        </Card>
       </div>
     </div>
   );

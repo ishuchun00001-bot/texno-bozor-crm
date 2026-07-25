@@ -13,11 +13,18 @@ import {
   Legend,
 } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
-import { supabase, isSupabaseConfigured } from '../supabaseClient';
-import { mockProducts, generateMockSales } from '../utils/mockData';
+import { 
+  TrendingUp, 
+  DollarSign, 
+  ShoppingBag, 
+  PackageCheck, 
+  AlertTriangle 
+} from 'lucide-react';
 import { formatCurrency, DEFAULT_RATES } from '../utils/currency';
+import { mockProducts } from '../utils/mockData';
+import Card from './ui/Card';
+import Badge from './ui/Badge';
 
-// Chart.js kutubxonasini ro'yxatdan o'tkazish
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -31,8 +38,16 @@ ChartJS.register(
   Legend
 );
 
-export default function Dashboard({ products: parentProducts = [], sales: parentSales = [], saleItems: parentSaleItems = [], loading, rates = DEFAULT_RATES, currency = 'USD', currentStore = 'all' }) {
-  const [filter, setFilter] = useState('monthly'); // 'daily', 'weekly', 'monthly', 'all'
+export default function Dashboard({ 
+  products: parentProducts = [], 
+  sales: parentSales = [], 
+  saleItems: parentSaleItems = [], 
+  loading, 
+  rates = DEFAULT_RATES, 
+  currency = 'USD', 
+  currentStore = 'all' 
+}) {
+  const [filter, setFilter] = useState('monthly');
   const [filteredSales, setFilteredSales] = useState([]);
   const [metrics, setMetrics] = useState({
     revenue: 0,
@@ -44,16 +59,13 @@ export default function Dashboard({ products: parentProducts = [], sales: parent
 
   const [lowStockProducts, setLowStockProducts] = useState([]);
 
-  // Store title banner label
   const storeLabel = currentStore === 'moto' 
-    ? '🏍️ Moto Bozor' 
+    ? 'Moto Bozor' 
     : currentStore === 'texno' 
-    ? '⚡ Texno Bozor' 
-    : '🌐 Barcha Do\'konlar';
+    ? 'Texno Bozor' 
+    : 'Barcha Do\'konlar';
 
-  // Filtrlash va Metrikalarni hisoblash
   useEffect(() => {
-    // Jami ombor hisob-kitoblari
     let totalStock = 0;
     let totalStockVal = 0;
     parentProducts.forEach(p => {
@@ -61,22 +73,20 @@ export default function Dashboard({ products: parentProducts = [], sales: parent
       totalStockVal += (p.stock || 0) * (p.cost_price || 0);
     });
 
-    // Kam qolgan tovarlar (stock < 5)
     const lowStock = parentProducts.filter(p => p.stock <= 5);
     setLowStockProducts(lowStock);
 
-    // Vaqt oralig'i bo'yicha filtr
     const now = new Date();
     let cutoffDate = new Date();
 
     if (filter === 'daily') {
-      cutoffDate.setHours(0, 0, 0, 0); // Bugun 00:00 dan boshlab
+      cutoffDate.setHours(0, 0, 0, 0);
     } else if (filter === 'weekly') {
-      cutoffDate.setDate(now.getDate() - 7); // O'tgan 7 kun
+      cutoffDate.setDate(now.getDate() - 7);
     } else if (filter === 'monthly') {
-      cutoffDate.setDate(now.getDate() - 30); // O'tgan 30 kun
+      cutoffDate.setDate(now.getDate() - 30);
     } else {
-      cutoffDate = new Date(0); // Barchasi
+      cutoffDate = new Date(0);
     }
 
     const filtered = parentSales.filter(sale => {
@@ -86,7 +96,6 @@ export default function Dashboard({ products: parentProducts = [], sales: parent
 
     setFilteredSales(filtered);
 
-    // Metrikalarni hisoblash
     let rev = 0;
     let cost = 0;
     let prof = 0;
@@ -104,31 +113,24 @@ export default function Dashboard({ products: parentProducts = [], sales: parent
       stockCount: totalStock,
       stockValue: Math.round(totalStockVal)
     });
-
   }, [filter, parentProducts, parentSales]);
 
-  // Safe date formatter
   const formatDateLabel = (dInput) => {
     try {
       const d = new Date(dInput);
       if (isNaN(d.getTime())) return 'Bugun';
       return d.toLocaleDateString('uz-UZ', { month: 'short', day: 'numeric' });
-    } catch (e) {
+    } catch {
       return 'Bugun';
     }
   };
 
-  // Diagrammalar uchun ma'lumotlarni tayyorlash
   const getLineChartData = () => {
-    // Sanalar bo'yicha guruhlash
     const dataMap = {};
-    
-    // So'nggi kunlar ro'yxatini yaratish (agar haftalik yoki oylik bo'lsa)
     const limit = filter === 'daily' ? 1 : filter === 'weekly' ? 7 : 30;
     const now = new Date();
 
     if (filter === 'all') {
-      // Barcha sotuvlarni sanasi bo'yicha tartiblash
       (filteredSales || []).forEach(sale => {
         const dateStr = formatDateLabel(sale.created_at);
         if (!dataMap[dateStr]) {
@@ -164,27 +166,27 @@ export default function Dashboard({ products: parentProducts = [], sales: parent
         {
           label: `Tushum (${currency})`,
           data: revenues,
-          borderColor: '#00f2fe',
-          backgroundColor: 'rgba(0, 242, 254, 0.1)',
+          borderColor: '#6366f1',
+          backgroundColor: 'rgba(99, 102, 241, 0.08)',
           tension: 0.3,
           fill: true,
+          pointRadius: 3
         },
         {
           label: `Sof Foyda (${currency})`,
           data: profits,
-          borderColor: '#9b5de5',
-          backgroundColor: 'rgba(155, 93, 229, 0.1)',
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16, 185, 129, 0.08)',
           tension: 0.3,
           fill: true,
+          pointRadius: 3
         }
       ]
     };
   };
 
   const getBarChartData = () => {
-    // Har bir mahsulot bo'yicha sotuvlar soni
     const productSalesMap = {};
-    
     (parentSaleItems || []).forEach(item => {
       const prod = (parentProducts || []).find(p => p && p.id === item.product_id);
       if (prod) {
@@ -195,7 +197,6 @@ export default function Dashboard({ products: parentProducts = [], sales: parent
       }
     });
 
-    // Eng ko'p sotilgan 5 tasini olish
     const sortedProducts = Object.keys(productSalesMap)
       .map(name => ({ name, qty: productSalesMap[name] }))
       .sort((a, b) => b.qty - a.qty)
@@ -207,19 +208,14 @@ export default function Dashboard({ products: parentProducts = [], sales: parent
         {
           label: 'Sotilgan donalar soni',
           data: sortedProducts.map(p => p.qty),
-          backgroundColor: 'rgba(0, 245, 212, 0.7)',
-          borderColor: '#00f5d4',
-          borderWidth: 1,
+          backgroundColor: 'rgba(99, 102, 241, 0.8)',
           borderRadius: 6,
         }
       ]
     };
   };
 
-  const formatPrimary = (val) => {
-    return formatCurrency(val, currency, rates);
-  };
-
+  const formatPrimary = (val) => formatCurrency(val, currency, rates);
   const formatSecondary = (val) => {
     const secondaryCurr = currency === 'USD' ? 'UZS' : 'USD';
     return formatCurrency(val, secondaryCurr, rates);
@@ -227,11 +223,11 @@ export default function Dashboard({ products: parentProducts = [], sales: parent
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        <div style={{ width: '150px', height: '30px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', animation: 'pulse 1.5s infinite' }}></div>
-        <div className="metrics-grid">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div className="skeleton" style={{ width: '180px', height: '28px' }} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
           {[1, 2, 3, 4].map(i => (
-            <div key={i} className="glass-card" style={{ height: '120px', animation: 'pulse 1.5s infinite' }}></div>
+            <div key={i} className="skeleton" style={{ height: '95px' }} />
           ))}
         </div>
       </div>
@@ -239,113 +235,109 @@ export default function Dashboard({ products: parentProducts = [], sales: parent
   }
 
   return (
-    <div className="page-fade-in">
-      {/* Sahifa Sarlavhasi */}
-      <div className="page-header">
-        <div className="page-title">
-          <h1 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span>Asosiy panel</span>
-            <span className="badge-category" style={{
-              fontSize: '13px',
-              padding: '4px 12px',
-              background: currentStore === 'moto' ? 'rgba(241, 91, 181, 0.15)' : 'rgba(0, 242, 254, 0.15)',
-              color: currentStore === 'moto' ? 'var(--neon-pink)' : 'var(--neon-blue)',
-              border: `1px solid ${currentStore === 'moto' ? 'var(--neon-pink)' : 'var(--neon-blue)'}`
-            }}>
-              {storeLabel}
-            </span>
-          </h1>
-          <p>Do'kon ko'rsatkichlari, zaxiralar va savdo tahlillari</p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* Header Banner */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '20px', fontWeight: '800', color: 'var(--text-primary)' }}>
+              Asosiy Boshqaruv Paneli
+            </h1>
+            <Badge variant="info">{storeLabel}</Badge>
+          </div>
+          <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
+            Tizim ko'rsatkichlari va savdo tahlillari
+          </p>
         </div>
 
-        {/* Filtr tabs */}
-        <div className="chart-actions">
-          <button className={`chart-tab ${filter === 'daily' ? 'active' : ''}`} onClick={() => setFilter('daily')}>Kunlik</button>
-          <button className={`chart-tab ${filter === 'weekly' ? 'active' : ''}`} onClick={() => setFilter('weekly')}>Haftalik</button>
-          <button className={`chart-tab ${filter === 'monthly' ? 'active' : ''}`} onClick={() => setFilter('monthly')}>Oylik</button>
-          <button className={`chart-tab ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>Barchasi</button>
+        {/* Date Filter Tabs */}
+        <div style={{ display: 'flex', background: 'var(--bg-secondary)', padding: '3px', borderRadius: 'var(--radius-md)', border: '1px solid var(--card-border)' }}>
+          {[
+            { id: 'daily', label: 'Kunlik' },
+            { id: 'weekly', label: 'Haftalik' },
+            { id: 'monthly', label: 'Oylik' },
+            { id: 'all', label: 'Barchasi' }
+          ].map(t => (
+            <button
+              key={t.id}
+              onClick={() => setFilter(t.id)}
+              style={{
+                padding: '5px 12px',
+                borderRadius: 'var(--radius-sm)',
+                border: 'none',
+                background: filter === t.id ? 'var(--brand-accent)' : 'transparent',
+                color: filter === t.id ? '#ffffff' : 'var(--text-secondary)',
+                fontSize: '12px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Metrikalar jadvali */}
-      <div className="metrics-grid">
-        <div className="glass-card metric-card blue">
-          <div className="metric-header">
-            <span>Umumiy Tushum</span>
-            <div className="metric-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+      {/* KPI Cards Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+        <div className="kpi-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <span className="kpi-subtitle">Umumiy Tushum</span>
+            <div className="kpi-icon-wrapper" style={{ color: 'var(--brand-accent)' }}>
+              <DollarSign size={18} />
             </div>
           </div>
-          <div className="metric-value">
-            {formatPrimary(metrics.revenue)}
-            <span className="currency-subtext">
-              {formatSecondary(metrics.revenue)}
-            </span>
-          </div>
-          <div className="metric-change positive">
-            <span>↑ Savdo faolligi</span>
+          <div className="kpi-value">{formatPrimary(metrics.revenue)}</div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+            {formatSecondary(metrics.revenue)}
           </div>
         </div>
- 
-        <div className="glass-card metric-card purple">
-          <div className="metric-header">
-            <span>Sotilgan tovarlar tannarxi</span>
-            <div className="metric-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M12 4v16M2 8h20M2 16h20"></path></svg>
+
+        <div className="kpi-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <span className="kpi-subtitle">Tovarlar Tannarxi</span>
+            <div className="kpi-icon-wrapper" style={{ color: 'var(--text-muted)' }}>
+              <ShoppingBag size={18} />
             </div>
           </div>
-          <div className="metric-value">
-            {formatPrimary(metrics.cost)}
-            <span className="currency-subtext">
-              {formatSecondary(metrics.cost)}
-            </span>
-          </div>
-          <div className="metric-change">
-            <span>Kirim narxi bo'yicha</span>
+          <div className="kpi-value">{formatPrimary(metrics.cost)}</div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+            {formatSecondary(metrics.cost)}
           </div>
         </div>
- 
-        <div className="glass-card metric-card green">
-          <div className="metric-header">
-            <span>Sof Foyda</span>
-            <div className="metric-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 6l-9.5 9.5-5-5L1 18"></path><polyline points="17 6 23 6 23 12"></polyline></svg>
+
+        <div className="kpi-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <span className="kpi-subtitle">Sof Foyda</span>
+            <div className="kpi-icon-wrapper" style={{ color: 'var(--success)' }}>
+              <TrendingUp size={18} />
             </div>
           </div>
-          <div className="metric-value" style={{color: 'var(--neon-green)'}}>
-            {formatPrimary(metrics.profit)}
-            <span className="currency-subtext" style={{color: 'var(--text-secondary)'}}>
-              {formatSecondary(metrics.profit)}
-            </span>
-          </div>
-          <div className="metric-change positive">
-            <span>+{metrics.revenue > 0 ? Math.round((metrics.profit / metrics.revenue) * 100) : 0}% rentabellik</span>
+          <div className="kpi-value" style={{ color: 'var(--success)' }}>{formatPrimary(metrics.profit)}</div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+            {formatSecondary(metrics.profit)} (+{metrics.revenue > 0 ? Math.round((metrics.profit / metrics.revenue) * 100) : 0}% marja)
           </div>
         </div>
- 
-        <div className="glass-card metric-card pink">
-          <div className="metric-header">
-            <span>Ombor Zahirasi</span>
-            <div className="metric-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+
+        <div className="kpi-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <span className="kpi-subtitle">Ombor Qoldig'i</span>
+            <div className="kpi-icon-wrapper" style={{ color: 'var(--warning)' }}>
+              <PackageCheck size={18} />
             </div>
           </div>
-          <div className="metric-value">{metrics.stockCount} dona</div>
-          <div className="metric-change">
-            <span>Jami qiymati: {`${formatPrimary(metrics.stockValue)} (${formatSecondary(metrics.stockValue)})`}</span>
+          <div className="kpi-value">{metrics.stockCount.toLocaleString()} dona</div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+            Jami: {formatPrimary(metrics.stockValue)}
           </div>
         </div>
       </div>
 
-      {/* Grafiklarning joylashuvi */}
-      <div className="dashboard-grid">
-        {/* Foyda va tushum dinamikasi */}
-        <div className="glass-card chart-card">
-          <div className="chart-header">
-            <h2 style={{fontSize: '18px', fontWeight: '700'}}>Savdo va Foyda dinamikasi</h2>
-            <span style={{fontSize: '12px', color: 'var(--text-muted)'}}>Line tahlili</span>
-          </div>
-          <div className="chart-container">
+      {/* Main Charts & Stock Alerts */}
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px' }}>
+        <Card title="Savdo va Foyda Dinamikasi">
+          <div style={{ height: '260px' }}>
             <Line
               data={getLineChartData()}
               options={{
@@ -354,62 +346,75 @@ export default function Dashboard({ products: parentProducts = [], sales: parent
                 plugins: {
                   legend: {
                     position: 'top',
-                    labels: { color: '#94a3b8', font: { family: 'Outfit' } }
+                    labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } }
                   },
                   tooltip: {
-                    mode: 'index',
-                    intersect: false,
-                    backgroundColor: '#0e1122',
+                    backgroundColor: '#0f1422',
                     titleColor: '#fff',
                     bodyColor: '#94a3b8',
-                    borderColor: 'rgba(255,255,255,0.08)',
+                    borderColor: 'rgba(255,255,255,0.1)',
                     borderWidth: 1
                   }
                 },
                 scales: {
-                  x: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#94a3b8' } },
-                  y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#94a3b8' } }
+                  x: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#64748b' } },
+                  y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#64748b' } }
                 }
               }}
             />
           </div>
-        </div>
+        </Card>
 
-        {/* Zahira ogohlantirishi */}
-        <div className="glass-card" style={{display: 'flex', flexDirection: 'column'}}>
-          <h2 style={{fontSize: '18px', fontWeight: '700', marginBottom: '16px'}}>Zahira Ogohlantirishi</h2>
-          <p style={{fontSize: '13px', color: 'var(--text-secondary)'}}>Omborda 5 donadan kam qolgan tovarlar</p>
-
-          <div className="alert-list" style={{overflowY: 'auto', flexGrow: 1, maxHeight: '280px'}}>
+        <Card 
+          title={
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <AlertTriangle size={16} style={{ color: 'var(--warning)' }} />
+              Zahira Ogohlantirishlari
+            </span>
+          }
+          style={{ display: 'flex', flexDirection: 'column' }}
+        >
+          <div style={{ overflowY: 'auto', flex: 1, maxHeight: '220px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {lowStockProducts.map(p => (
-              <div key={p.id} className="alert-item">
-                <div className="alert-avatar">
-                  <img src={p.image_url || mockProducts[0].image_url} alt={p.name} />
+              <div 
+                key={p.id} 
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '8px 10px',
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--card-border)',
+                  borderRadius: 'var(--radius-md)'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <img 
+                    src={p.image_url || mockProducts[0].image_url} 
+                    alt={p.name} 
+                    style={{ width: '32px', height: '32px', borderRadius: '6px', objectFit: 'cover' }} 
+                  />
+                  <div>
+                    <div style={{ fontSize: '12.5px', fontWeight: '600', color: 'var(--text-primary)' }}>{p.name}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{formatPrimary(p.selling_price)}</div>
+                  </div>
                 </div>
-                <div className="alert-details">
-                  <div className="alert-name">{p.name}</div>
-                  <div className="alert-meta">Sotish: {`${formatPrimary(p.selling_price)} / ${formatSecondary(p.selling_price)}`}</div>
-                </div>
-                <div className="alert-badge danger">
-                  {p.stock} dona qoldi
-                </div>
+                <Badge variant="danger">{p.stock} dona</Badge>
               </div>
             ))}
+
             {lowStockProducts.length === 0 && (
-              <div style={{textAlign: 'center', color: 'var(--text-muted)', padding: '32px 0'}}>
-                Zahira kam mahsulotlar mavjud emas. Hammasi joyida! ✅
+              <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px 0', fontSize: '12.5px' }}>
+                Zahira kam tovarlar yo'q! ✅
               </div>
             )}
           </div>
-        </div>
+        </Card>
       </div>
 
-      {/* Pastki grafik: Top mahsulotlar */}
-      <div className="glass-card chart-card" style={{minHeight: '320px'}}>
-        <div className="chart-header">
-          <h2 style={{fontSize: '18px', fontWeight: '700'}}>Eng ko'p sotilgan mahsulotlar (Top 5)</h2>
-        </div>
-        <div className="chart-container" style={{maxHeight: '240px'}}>
+      {/* Top 5 Selling Products Bar Chart */}
+      <Card title="Eng Ko'p Sotilgan Tovarlar (Top 5)">
+        <div style={{ height: '200px' }}>
           <Bar
             data={getBarChartData()}
             options={{
@@ -417,16 +422,16 @@ export default function Dashboard({ products: parentProducts = [], sales: parent
               maintainAspectRatio: false,
               plugins: {
                 legend: { display: false },
-                tooltip: { backgroundColor: '#0e1122' }
+                tooltip: { backgroundColor: '#0f1422' }
               },
               scales: {
-                x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
-                y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#94a3b8', stepSize: 1 } }
+                x: { grid: { display: false }, ticks: { color: '#64748b' } },
+                y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#64748b', stepSize: 1 } }
               }
             }}
           />
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

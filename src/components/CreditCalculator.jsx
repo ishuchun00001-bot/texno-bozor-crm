@@ -1,26 +1,42 @@
 import React, { useState, useEffect } from 'react';
+import { 
+  Search, 
+  Printer, 
+  Sliders 
+} from 'lucide-react';
 import { formatCurrency, DEFAULT_RATES } from '../utils/currency';
+import Button from './ui/Button';
+import Card from './ui/Card';
+import Input from './ui/Input';
 
 export default function CreditCalculator({ products = [], rates = DEFAULT_RATES }) {
-  const [calcCurrency, setCalcCurrency] = useState('USD'); // 'USD', 'UZS', 'EUR', 'RUB'
+  const [calcCurrency, setCalcCurrency] = useState('USD');
   const [selectedProductId, setSelectedProductId] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+
   const [productPrice, setProductPrice] = useState(1000);
   const [downPayment, setDownPayment] = useState(200);
   const [downPaymentPercent, setDownPaymentPercent] = useState(20);
-  const [duration, setDuration] = useState(12); // Oylar soni
-  const [annualRate, setAnnualRate] = useState(24); // Yillik foiz
-  const [calcType, setCalcType] = useState('annuity'); // 'annuity' yoki 'flat' (oddiy)
+  const [duration, setDuration] = useState(12);
+  const [annualRate, setAnnualRate] = useState(24);
+  const [calcType] = useState('annuity');
   
   const [monthlyPayment, setMonthlyPayment] = useState(0);
   const [totalInterest, setTotalInterest] = useState(0);
   const [totalPayable, setTotalPayable] = useState(0);
   const [schedule, setSchedule] = useState([]);
 
-  // Valyuta o'zgarganda qiymatlarni konvertatsiya qilish
+  const matchingProducts = searchTerm.trim() ? products.filter(p =>
+    (p.name && p.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (p.brand && p.brand.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (p.model && p.model.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (p.sku && p.sku.toLowerCase().includes(searchTerm.toLowerCase()))
+  ) : [];
+
   const handleCurrencyToggle = (newCurrency) => {
     if (newCurrency === calcCurrency) return;
     
-    // Convert from calcCurrency to USD, then from USD to newCurrency
     const priceInUSD = productPrice / (rates[calcCurrency] || 1);
     const newPrice = Math.round(priceInUSD * (rates[newCurrency] || 1));
     
@@ -32,21 +48,17 @@ export default function CreditCalculator({ products = [], rates = DEFAULT_RATES 
     setCalcCurrency(newCurrency);
   };
 
-  // Mahsulot tanlanganda narxni yangilash
-  useEffect(() => {
-    if (selectedProductId) {
-      const prod = products.find(p => p.id === selectedProductId);
-      if (prod) {
-        const price = Math.round(prod.selling_price * (rates[calcCurrency] || 1));
-        setProductPrice(price);
-        // Boshlang'ich to'lov foizini hisoblash
-        const downVal = Math.round(price * (downPaymentPercent / 100));
-        setDownPayment(downVal);
-      }
-    }
-  }, [selectedProductId, products, calcCurrency, rates, downPaymentPercent]);
+  const handleSelectProduct = (prod) => {
+    setSelectedProductId(prod.id);
+    setSearchTerm(prod.name);
+    setIsSearchOpen(false);
 
-  // Hisob-kitoblarni amalga oshirish
+    const price = Math.round(prod.selling_price * (rates[calcCurrency] || 1));
+    setProductPrice(price);
+    const downVal = Math.round(price * (downPaymentPercent / 100));
+    setDownPayment(downVal);
+  };
+
   useEffect(() => {
     const loanAmount = Math.max(0, productPrice - downPayment);
     let monthlyVal = 0;
@@ -63,7 +75,6 @@ export default function CreditCalculator({ products = [], rates = DEFAULT_RATES 
     }
 
     if (calcType === 'annuity') {
-      // Annuitet usuli
       const monthlyRate = annualRate / 12 / 100;
       if (monthlyRate === 0) {
         monthlyVal = loanAmount / duration;
@@ -74,7 +85,6 @@ export default function CreditCalculator({ products = [], rates = DEFAULT_RATES 
       }
       interestVal = totalPayableVal - loanAmount;
 
-      // Jadvalni yaratish
       let remainingBalance = loanAmount;
       for (let month = 1; month <= duration; month++) {
         const interestPayment = remainingBalance * monthlyRate;
@@ -90,24 +100,22 @@ export default function CreditCalculator({ products = [], rates = DEFAULT_RATES 
         });
       }
     } else {
-      // Oddiy (Flat / Oddiy ustama) usuli
       const totalInterestRate = (annualRate / 100) * (duration / 12);
       interestVal = loanAmount * totalInterestRate;
       totalPayableVal = loanAmount + interestVal;
       monthlyVal = totalPayableVal / duration;
 
-      // Jadvalni yaratish
+      const monthlyPrincipal = loanAmount / duration;
+      const monthlyInterest = interestVal / duration;
       let remainingBalance = loanAmount;
-      const flatInterestPerMonth = interestVal / duration;
-      const flatPrincipalPerMonth = loanAmount / duration;
 
       for (let month = 1; month <= duration; month++) {
-        remainingBalance = Math.max(0, remainingBalance - flatPrincipalPerMonth);
+        remainingBalance = Math.max(0, remainingBalance - monthlyPrincipal);
         scheduleData.push({
           month,
           payment: monthlyVal,
-          principal: flatPrincipalPerMonth,
-          interest: flatInterestPerMonth,
+          principal: monthlyPrincipal,
+          interest: monthlyInterest,
           balance: remainingBalance
         });
       }
@@ -117,315 +125,261 @@ export default function CreditCalculator({ products = [], rates = DEFAULT_RATES 
     setTotalInterest(Math.round(interestVal));
     setTotalPayable(Math.round(totalPayableVal));
     setSchedule(scheduleData);
-
   }, [productPrice, downPayment, duration, annualRate, calcType]);
 
-  // Boshlang'ich to'lov o'zgarganda foizini hisoblash
-  const handleDownPaymentChange = (val) => {
-    const value = Math.max(0, Math.min(productPrice, val));
-    setDownPayment(value);
-    if (productPrice > 0) {
-      setDownPaymentPercent(Math.round((value / productPrice) * 100));
-    }
+  const handlePriceChange = (val) => {
+    const p = Math.max(0, parseFloat(val) || 0);
+    setProductPrice(p);
+    setDownPayment(Math.round(p * (downPaymentPercent / 100)));
   };
 
-  // Boshlang'ich to'lov foizi o'zgarganda summasini hisoblash
   const handlePercentChange = (pct) => {
-    const percent = Math.max(0, Math.min(100, pct));
-    setDownPaymentPercent(percent);
-    setDownPayment(Math.round(productPrice * (percent / 100)));
+    setDownPaymentPercent(pct);
+    setDownPayment(Math.round(productPrice * (pct / 100)));
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
-  const formatPrimary = (val) => {
-    const usdVal = val / (rates[calcCurrency] || 1);
-    return formatCurrency(usdVal, calcCurrency, rates);
-  };
-
-  const formatSecondary = (val) => {
-    const usdVal = val / (rates[calcCurrency] || 1);
-    const secondaryCurr = calcCurrency === 'USD' ? 'UZS' : 'USD';
-    return formatCurrency(usdVal, secondaryCurr, rates);
-  };
+  const formatCurr = (val) => formatCurrency(val, calcCurrency, rates);
 
   return (
-    <div className="page-fade-in">
-      <div className="page-header">
-        <div className="page-title">
-          <h1>Kredit Kalkulyatori</h1>
-          <p>Mahsulotlar uchun bo'lib-bo'lib to'lash va kredit rejasini hisoblash</p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {/* Page Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+        <div>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '24px', fontWeight: '800', color: 'var(--text-primary)' }}>
+            Kredit va Muddatli To'lov Kalkulyatori
+          </h1>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px' }}>
+            Nasiya to'lovi grafigi va oylik badal miqdorini aniq hisoblash
+          </p>
+        </div>
+
+        {/* Currency Switcher */}
+        <div style={{ display: 'flex', background: 'var(--bg-secondary)', padding: '3px', borderRadius: 'var(--radius-md)', border: '1px solid var(--card-border)' }}>
+          {['USD', 'UZS', 'EUR', 'RUB'].map(c => (
+            <button
+              key={c}
+              onClick={() => handleCurrencyToggle(c)}
+              style={{
+                padding: '5px 12px',
+                borderRadius: 'var(--radius-sm)',
+                border: 'none',
+                background: calcCurrency === c ? 'var(--brand-accent)' : 'transparent',
+                color: calcCurrency === c ? '#ffffff' : 'var(--text-secondary)',
+                fontSize: '11.5px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              {c}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="calc-grid">
-        {/* Sozlamalar paneli */}
-        <div className="glass-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--neon-blue)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-              Kalkulyator Sozlamalari
-            </h2>
+      {/* Main Grid: Controls vs Results */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+        {/* Controls Card */}
+        <Card style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Sliders size={18} style={{ color: 'var(--brand-accent)' }} />
+            Hisob-kitob Parametrlari
+          </h2>
 
-            {/* Valyutani almashtirish tugmasi */}
-            <div className="chart-actions" style={{ padding: '2px', display: 'flex', gap: '2px' }}>
-              {['USD', 'UZS', 'EUR', 'RUB'].map((currKey) => (
-                <button 
-                  key={currKey}
-                  className={`chart-tab ${calcCurrency === currKey ? 'active' : ''}`} 
-                  onClick={() => handleCurrencyToggle(currKey)}
-                  style={{ padding: '4px 8px', fontSize: '11px' }}
+          {/* Product Autocomplete Search */}
+          <div className="form-group" style={{ position: 'relative' }}>
+            <label className="form-label">Ombordan Tovar Tanlash</label>
+            <div style={{ position: 'relative' }}>
+              <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Tovarni qidirish..."
+                value={searchTerm}
+                onChange={(e) => { setSearchTerm(e.target.value); setIsSearchOpen(true); }}
+                onFocus={() => setIsSearchOpen(true)}
+                style={{ paddingLeft: '38px' }}
+              />
+            </div>
+            {isSearchOpen && matchingProducts.length > 0 && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                right: 0,
+                background: 'var(--card-bg)',
+                border: '1px solid var(--card-border)',
+                borderRadius: 'var(--radius-md)',
+                zIndex: 200,
+                maxHeight: '200px',
+                overflowY: 'auto',
+                boxShadow: 'var(--shadow-lg)'
+              }}>
+                {matchingProducts.map(p => (
+                  <div
+                    key={p.id}
+                    onClick={() => handleSelectProduct(p)}
+                    style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid var(--card-border)', fontSize: '13px' }}
+                  >
+                    <div style={{ fontWeight: '600' }}>{p.name}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--brand-gold)' }}>{formatCurr(p.selling_price)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Product Price & Slider */}
+          <div className="form-group">
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+              <label className="form-label">Tovar Narxi</label>
+              <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--brand-gold)' }}>{formatCurr(productPrice)}</span>
+            </div>
+            <input
+              type="range"
+              min="100"
+              max="50000"
+              step="50"
+              value={productPrice}
+              onChange={(e) => handlePriceChange(e.target.value)}
+              style={{ width: '100%', accentColor: 'var(--brand-accent)' }}
+            />
+          </div>
+
+          {/* Down Payment & Preset Pills */}
+          <div className="form-group">
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+              <label className="form-label">Boshlang'ich To'lov ({downPaymentPercent}%)</label>
+              <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--success)' }}>{formatCurr(downPayment)}</span>
+            </div>
+            <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+              {[0, 10, 20, 30, 50].map(pct => (
+                <button
+                  key={pct}
                   type="button"
+                  onClick={() => handlePercentChange(pct)}
+                  style={{
+                    flex: 1,
+                    padding: '4px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--card-border)',
+                    background: downPaymentPercent === pct ? 'var(--brand-accent)' : 'var(--bg-secondary)',
+                    color: downPaymentPercent === pct ? '#ffffff' : 'var(--text-muted)',
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
                 >
-                  {currKey}
+                  {pct}%
                 </button>
               ))}
             </div>
           </div>
 
+          {/* Loan Duration Slider */}
           <div className="form-group">
-            <label>Mahsulotni tanlang (ixtiyoriy)</label>
-            <select
-              className="form-control"
-              value={selectedProductId}
-              onChange={(e) => setSelectedProductId(e.target.value)}
-            >
-              <option value="">-- Mahsulotni tanlash --</option>
-              {products.map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({formatCurrency(p.selling_price, calcCurrency, rates)} / {formatCurrency(p.selling_price, calcCurrency === 'USD' ? 'UZS' : 'USD', rates)})
-                </option>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+              <label className="form-label">Nasiya Muddati</label>
+              <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>{duration} oy</span>
+            </div>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              {[3, 6, 9, 12, 18, 24, 36].map(m => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setDuration(m)}
+                  style={{
+                    flex: 1,
+                    padding: '6px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--card-border)',
+                    background: duration === m ? 'var(--brand-accent)' : 'var(--bg-secondary)',
+                    color: duration === m ? '#ffffff' : 'var(--text-muted)',
+                    fontSize: '11.5px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {m} oy
+                </button>
               ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label>Mahsulot Narxi ({calcCurrency})</label>
-            <input
-              type="number"
-              className="form-control"
-              value={productPrice}
-              onChange={(e) => {
-                setSelectedProductId('');
-                setProductPrice(Math.max(0, parseFloat(e.target.value) || 0));
-              }}
-            />
-            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-              ~ {formatSecondary(productPrice)}
             </div>
           </div>
 
-          <div className="form-row">
-            <div className="form-group">
-              <label>Boshlang'ich to'lov ({calcCurrency})</label>
-              <input
-                type="number"
-                className="form-control"
-                value={downPayment}
-                onChange={(e) => handleDownPaymentChange(parseFloat(e.target.value) || 0)}
-              />
-              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                ~ {formatSecondary(downPayment)}
+          {/* Annual Interest Rate */}
+          <Input 
+            label="Yillik Ustama Foizi (%)" 
+            type="number" 
+            value={annualRate} 
+            onChange={(e) => setAnnualRate(parseFloat(e.target.value) || 0)} 
+          />
+        </Card>
+
+        {/* Results Metrics Display Card */}
+        <Card style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div>
+            <h2 className="card-title" style={{ marginBottom: '20px' }}>To'lov Xulosasi</h2>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ padding: '16px', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', border: '1px solid var(--card-border)' }}>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: '600' }}>Oylik Badal To'lovi</div>
+                <div style={{ fontSize: '32px', fontWeight: '800', fontFamily: 'var(--font-display)', color: 'var(--brand-gold)', marginTop: '2px' }}>
+                  {formatCurr(monthlyPayment)}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{ padding: '12px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--card-border)' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Moliya Qarz Summasi</div>
+                  <div style={{ fontSize: '16px', fontWeight: '700', marginTop: '2px' }}>{formatCurr(Math.max(0, productPrice - downPayment))}</div>
+                </div>
+
+                <div style={{ padding: '12px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--card-border)' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Jami Ustama Foiz</div>
+                  <div style={{ fontSize: '16px', fontWeight: '700', color: 'var(--warning)', marginTop: '2px' }}>{formatCurr(totalInterest)}</div>
+                </div>
+              </div>
+
+              <div style={{ padding: '12px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--card-border)' }}>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Jami Qaytariladigan Summa</div>
+                <div style={{ fontSize: '18px', fontWeight: '800', color: 'var(--success)', marginTop: '2px' }}>{formatCurr(totalPayable + downPayment)}</div>
               </div>
             </div>
-            <div className="form-group">
-              <label>Boshlang'ich to'lov (%)</label>
-              <input
-                type="number"
-                className="form-control"
-                value={downPaymentPercent}
-                onChange={(e) => handlePercentChange(parseFloat(e.target.value) || 0)}
-              />
-            </div>
           </div>
 
-          <div className="form-row">
-            <div className="form-group">
-              <label>Muddati (Oylar soni)</label>
-              <select
-                className="form-control"
-                value={duration}
-                onChange={(e) => setDuration(parseInt(e.target.value, 10))}
-              >
-                <option value="3">3 oy</option>
-                <option value="6">6 oy</option>
-                <option value="9">9 oy</option>
-                <option value="12">12 oy</option>
-                <option value="18">18 oy</option>
-                <option value="24">24 oy</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Yillik foiz ustamasi (%)</label>
-              <input
-                type="number"
-                className="form-control"
-                value={annualRate}
-                onChange={(e) => setAnnualRate(Math.max(0, parseFloat(e.target.value) || 0))}
-              />
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label>Hisoblash Usuli</label>
-            <div style={{ display: 'flex', gap: '16px', marginTop: '4px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '14px', color: 'var(--text-primary)' }}>
-                <input
-                  type="radio"
-                  name="calc_type"
-                  value="annuity"
-                  checked={calcType === 'annuity'}
-                  onChange={() => setCalcType('annuity')}
-                />
-                Annuitet (Teng oylik to'lov)
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '14px', color: 'var(--text-primary)' }}>
-                <input
-                  type="radio"
-                  name="calc_type"
-                  value="flat"
-                  checked={calcType === 'flat'}
-                  onChange={() => setCalcType('flat')}
-                />
-                Oddiy (Flat / Yassi foiz)
-              </label>
-            </div>
-          </div>
-
-          <div className="results-panel">
-            <div className="result-box">
-              <div className="result-box-label">Oylik To'lov</div>
-              <div className="result-box-val">{formatPrimary(monthlyPayment)}</div>
-              <span className="currency-subtext" style={{ fontSize: '11px' }}>{formatSecondary(monthlyPayment)}</span>
-            </div>
-            <div className="result-box">
-              <div className="result-box-label">Kredit Summasi</div>
-              <div className="result-box-val purple">{formatPrimary(Math.max(0, productPrice - downPayment))}</div>
-              <span className="currency-subtext" style={{ fontSize: '11px' }}>{formatSecondary(Math.max(0, productPrice - downPayment))}</span>
-            </div>
-            <div className="result-box">
-              <div className="result-box-label">Jami Ustama (Foiz)</div>
-              <div className="result-box-val purple">{formatPrimary(totalInterest)}</div>
-              <span className="currency-subtext" style={{ fontSize: '11px' }}>{formatSecondary(totalInterest)}</span>
-            </div>
-            <div className="result-box">
-              <div className="result-box-label">Jami To'lanadigan</div>
-              <div className="result-box-val">{formatPrimary(totalPayable)}</div>
-              <span className="currency-subtext" style={{ fontSize: '11px' }}>{formatSecondary(totalPayable)}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* To'lovlar grafigi jadvali */}
-        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column' }}>
-          <div className="schedule-header">
-            <h2 style={{ fontSize: '18px', fontWeight: '700' }}>To'lovlar Jadvali</h2>
-          </div>
-
-          <div className="table-container" style={{ flexGrow: 1, maxHeight: '520px', overflowY: 'auto' }}>
-            <table className="custom-table">
-              <thead>
-                <tr>
-                  <th>Oy</th>
-                  <th>To'lov Summasi</th>
-                  <th>Asosiy Qarz to'lovi</th>
-                  <th>Foiz to'lovi</th>
-                  <th>Qoldiq Qarz</th>
-                </tr>
-              </thead>
-              <tbody>
-                {schedule.map((row) => (
-                  <tr key={row.month}>
-                    <td>{row.month}-oy</td>
-                    <td style={{ fontWeight: '600' }}>
-                      {formatPrimary(row.payment)}
-                      <span className="currency-subtext" style={{ fontSize: '11px' }}>{formatSecondary(row.payment)}</span>
-                    </td>
-                    <td>
-                      {formatPrimary(row.principal)}
-                      <span className="currency-subtext" style={{ fontSize: '11px' }}>{formatSecondary(row.principal)}</span>
-                    </td>
-                    <td style={{ color: 'var(--neon-pink)' }}>
-                      {formatPrimary(row.interest)}
-                      <span className="currency-subtext" style={{ color: 'var(--text-muted)', fontSize: '11px' }}>{formatSecondary(row.interest)}</span>
-                    </td>
-                    <td style={{ color: 'var(--text-muted)' }}>
-                      {formatPrimary(row.balance)}
-                      <span className="currency-subtext" style={{ fontSize: '11px' }}>{formatSecondary(row.balance)}</span>
-                    </td>
-                  </tr>
-                ))}
-                {schedule.length === 0 && (
-                  <tr>
-                    <td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px' }}>
-                      Hisoblash uchun qiymatlarni kiriting
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+          <Button variant="primary" onClick={() => window.print()} style={{ marginTop: '20px' }}>
+            <Printer size={16} /> Grafikni Chop Etish
+          </Button>
+        </Card>
       </div>
 
-      {/* Chop etish uchun yashirin toza varaq */}
-      <div id="printable-receipt-area" style={{ display: 'none' }}>
-        <div className="receipt-header">
-          <div className="receipt-logo">⚡ TEXNO BOZOR</div>
-          <div style={{fontSize: '11px', marginTop: '4px'}}>Kredit / Muddatli to'lov shartnomasi grafigi</div>
+      {/* Schedule Table */}
+      <div className="table-container">
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--card-border)', fontWeight: '700' }}>
+          Oylik To'lovlar Grafigi ({schedule.length} oy)
         </div>
-        <div className="receipt-row">
-          <span>Mahsulot narxi:</span>
-          <span>{formatPrimary(productPrice)} ({formatSecondary(productPrice)})</span>
-        </div>
-        <div className="receipt-row">
-          <span>Boshlang'ich to'lov:</span>
-          <span>{formatPrimary(downPayment)} ({formatSecondary(downPayment)})</span>
-        </div>
-        <div className="receipt-row">
-          <span>Kredit miqdori:</span>
-          <span>{formatPrimary(productPrice - downPayment)} ({formatSecondary(productPrice - downPayment)})</span>
-        </div>
-        <div className="receipt-row">
-          <span>Kredit muddati:</span>
-          <span>{duration} oy</span>
-        </div>
-        <div className="receipt-row">
-          <span>Foiz stavkasi:</span>
-          <span>{annualRate}% (yillik)</span>
-        </div>
-        <div className="receipt-row">
-          <span>Hisoblash turi:</span>
-          <span>{calcType === 'annuity' ? 'Annuitet' : 'Flat'}</span>
-        </div>
-        <div className="receipt-divider"></div>
-        <div className="receipt-row receipt-total">
-          <span>Oylik to'lov:</span>
-          <span>{formatPrimary(monthlyPayment)} / {formatSecondary(monthlyPayment)}</span>
-        </div>
-        <div className="receipt-row">
-          <span>Jami foiz ustamasi:</span>
-          <span>{formatPrimary(totalInterest)} / {formatSecondary(totalInterest)}</span>
-        </div>
-        <div className="receipt-row receipt-total">
-          <span>Jami qaytariladigan:</span>
-          <span>{formatPrimary(totalPayable)} / {formatSecondary(totalPayable)}</span>
-        </div>
-        <div className="receipt-divider"></div>
-        <div style={{textAlign: 'center', fontSize: '12px', fontWeight: 'bold', marginBottom: '10px'}}>TO'LOVLAR GRAFIGI</div>
-        {schedule.map(row => (
-          <div key={row.month} className="receipt-row" style={{fontSize: '11px'}}>
-            <span>{row.month}-oy: {formatPrimary(row.payment)}</span>
-            <span>Qoldiq: {formatPrimary(row.balance)}</span>
-          </div>
-        ))}
-        <div className="receipt-divider"></div>
-        <div style={{textAlign: 'center', fontSize: '10px', marginTop: '10px', color: '#555'}}>
-          Hujjat ma'lumot olish maqsadida chop etildi.<br />
-          Sana: {new Date().toLocaleDateString('uz-UZ')}
-        </div>
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Oy №</th>
+              <th>Oylik Badal</th>
+              <th>Asosiy Qarz</th>
+              <th>Ustama Foiz</th>
+              <th>Qoldiq Qarz</th>
+            </tr>
+          </thead>
+          <tbody>
+            {schedule.map(s => (
+              <tr key={s.month}>
+                <td style={{ fontWeight: '700' }}>{s.month}-oy</td>
+                <td style={{ fontWeight: '700', color: 'var(--brand-gold)' }}>{formatCurr(s.payment)}</td>
+                <td>{formatCurr(s.principal)}</td>
+                <td style={{ color: 'var(--warning)' }}>{formatCurr(s.interest)}</td>
+                <td>{formatCurr(s.balance)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

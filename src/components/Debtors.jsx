@@ -1,13 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import * as XLSX from 'xlsx';
+import { 
+  Users, 
+  Plus, 
+  Search, 
+  FileSpreadsheet, 
+  CreditCard, 
+  Trash2, 
+  Phone 
+} from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import { formatCurrency, DEFAULT_RATES } from '../utils/currency';
 import { sendTelegramNotification } from './TelegramSettingsModal';
 import { useToast } from './Toast';
+import Button from './ui/Button';
+import Badge from './ui/Badge';
+import Card from './ui/Card';
+import Input from './ui/Input';
+import Modal from './ui/Modal';
 
 export default function Debtors({
-  products = [],
   rates = DEFAULT_RATES,
   currency = 'USD',
   currentStore = 'all',
@@ -16,7 +28,7 @@ export default function Debtors({
   const [debtors, setDebtors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'active', 'completed', 'overdue'
+  const [filterStatus, setFilterStatus] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [selectedDebtor, setSelectedDebtor] = useState(null);
@@ -35,9 +47,7 @@ export default function Debtors({
 
   // To'lov qilish modal formulasi
   const [payAmount, setPayAmount] = useState(0);
-  const [payNote, setPayNote] = useState('');
 
-  // Initial Mock Debtors (Namuna uchun)
   const mockDebtors = [
     {
       id: 'deb-1',
@@ -75,7 +85,6 @@ export default function Debtors({
     }
   ];
 
-  // Ma'lumotlarni yuklash (Supabase yoki LocalStorage)
   const fetchDebtors = async () => {
     setLoading(true);
     try {
@@ -106,7 +115,6 @@ export default function Debtors({
     fetchDebtors();
   }, []);
 
-  // Modalni ochish
   const openModal = () => {
     setClientName('');
     setPhone('+998 ');
@@ -120,7 +128,6 @@ export default function Debtors({
     setIsModalOpen(true);
   };
 
-  // Yangi Nasiya Saqlash
   const handleSaveDebtor = async (e) => {
     e.preventDefault();
     if (!clientName || !totalAmount) {
@@ -163,7 +170,6 @@ export default function Debtors({
         localStorage.setItem('local_debtors', JSON.stringify(local));
       }
 
-      // Telegram Xabarnomasi
       const tgMsg =
         `📋 <b>YANGI NASIYA RASMIYLASHTIRILDI!</b>\n\n` +
         `👤 Mijoz: <b>${clientName}</b> (${phone})\n` +
@@ -187,16 +193,13 @@ export default function Debtors({
     }
   };
 
-  // To'lov Qabul Qilish Modalini Ochish
   const openPayModal = (debtor) => {
     setSelectedDebtor(debtor);
     const rate = rates[currency] || 1;
     setPayAmount(Math.round((debtor.monthly_payment || 0) * rate));
-    setPayNote('');
     setIsPayModalOpen(true);
   };
 
-  // To'lovni Bazaga Qayd Etish
   const handleRecordPayment = async (e) => {
     e.preventDefault();
     if (!selectedDebtor || !payAmount) return;
@@ -228,14 +231,13 @@ export default function Debtors({
         localStorage.setItem('local_debtors', JSON.stringify(local));
       }
 
-      // Telegram xabarnomasi
       const tgMsg =
         `💵 <b>NASIYA TO'LOVI QABUL QILINDI!</b>\n\n` +
         `👤 Mijoz: <b>${selectedDebtor.client_name}</b>\n` +
         `📦 Tovar: ${selectedDebtor.product_name}\n` +
         `💰 Qabul qilindi: <b>$${payUsd.toFixed(0)}</b> (${formatCurrency(payUsd, 'UZS', rates)})\n` +
         `📉 Qolgan Qarz: <b>$${newRemaining.toFixed(0)}</b>\n` +
-        `📊 Holat: ${newStatus === 'completed' ? '✅ TO' + 'LIQ YOPILDI!' : '⚡ Faol'}`;
+        `📊 Holat: ${newStatus === 'completed' ? '✅ TO\'LIQ YOPILDI!' : '⚡ Faol'}`;
       sendTelegramNotification(tgMsg);
 
       toast.success(newRemaining <= 0 ? "Tabriklaymiz! Qarz to'liq yopildi! 🎉" : "To'lov muvaffaqiyatli qabul qilindi! ✅");
@@ -247,7 +249,6 @@ export default function Debtors({
     }
   };
 
-  // O'chirish
   const handleDeleteDebtor = async (id) => {
     if (!window.confirm("Haqiqatan ham ushbu nasiya yozuvini o'chirmoqchisiz?")) return;
     try {
@@ -266,7 +267,6 @@ export default function Debtors({
     }
   };
 
-  // Excel Eksport
   const handleExportExcel = () => {
     if (debtors.length === 0) {
       toast.warning("Excel eksport qilish uchun ma'lumotlar yo'q!");
@@ -294,381 +294,292 @@ export default function Debtors({
     XLSX.writeFile(wb, `Nasiyadorlar_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
-  // Filtrlangan Nasiyadorlar
   const filteredDebtors = debtors.filter(d => {
     const matchesStore = currentStore === 'all' || (d.store_type || 'texno') === currentStore;
     const matchesStatus = filterStatus === 'all' || d.status === filterStatus;
-    const q = searchQuery.toLowerCase();
-    const matchesSearch =
-      (d.client_name && d.client_name.toLowerCase().includes(q)) ||
-      (d.phone && d.phone.toLowerCase().includes(q)) ||
-      (d.product_name && d.product_name.toLowerCase().includes(q));
-    return matchesStore && matchesStatus && matchesSearch;
+    const matchesQuery = 
+      (d.client_name && d.client_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (d.phone && d.phone.includes(searchQuery)) ||
+      (d.product_name && d.product_name.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    return matchesStore && matchesStatus && matchesQuery;
   });
 
-  // Metrikalarni hisoblash
-  const totalDebtUsd = filteredDebtors.reduce((acc, d) => acc + (d.remaining_amount || 0), 0);
-  const monthlyExpectedUsd = filteredDebtors.filter(d => d.status === 'active' || d.status === 'overdue').reduce((acc, d) => acc + (d.monthly_payment || 0), 0);
-  const overdueCount = filteredDebtors.filter(d => d.status === 'overdue').length;
+  const totalRemainingUsd = filteredDebtors.reduce((sum, d) => sum + (parseFloat(d.remaining_amount) || 0), 0);
 
-  const fmtPrimary = (val) => formatCurrency(val, currency, rates);
-  const fmtSecondary = (val) => formatCurrency(val, currency === 'USD' ? 'UZS' : 'USD', rates);
+  const formatPrimary = (val) => formatCurrency(val, currency, rates);
+  const formatSecondary = (val) => {
+    const sec = currency === 'USD' ? 'UZS' : 'USD';
+    return formatCurrency(val, sec, rates);
+  };
 
   return (
-    <div className="page-fade-in">
-      {/* Page Header */}
-      <div className="page-header" style={{ flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
-        <div className="page-title">
-          <h1>Nasiyadorlar Daftari (Qarzlar)</h1>
-          <p>Mijozlarning bo'lib to'lash (nasiya) shartnomalari, to'lovlar grafigi va qarzdorlik nazorati</p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* Header Bar */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+        <div>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '24px', fontWeight: '800', color: 'var(--text-primary)' }}>
+            Nasiya va Qarzlar Boshqaruvi
+          </h1>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px' }}>
+            Muddatli to'lovlar, qarzdorliklar va to'lov grafigi monitoringi
+          </p>
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={handleExportExcel} className="btn-secondary" style={{ fontSize: '13px', padding: '8px 14px' }}>
-            📥 Excel Eksport (.xlsx)
-          </button>
-          <button onClick={openModal} className="btn-primary" style={{ fontSize: '13px', padding: '8px 18px' }}>
-            + Yangi Nasiya Bitimi
-          </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <Button variant="secondary" size="sm" onClick={handleExportExcel}>
+            <FileSpreadsheet size={14} /> Export (Excel)
+          </Button>
+          <Button variant="primary" onClick={openModal}>
+            <Plus size={16} /> Yangi Nasiya Rasmiylashtirish
+          </Button>
         </div>
       </div>
 
-      {/* Analytics Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-        <div className="glass-card" style={{ padding: '16px' }}>
-          <div style={{ fontSize: '24px', marginBottom: '4px' }}>📉</div>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Jami Qolgan Qarz</div>
-          <div style={{ fontSize: '20px', fontWeight: '700', color: 'var(--neon-pink)', marginTop: '4px' }}>
-            {fmtPrimary(totalDebtUsd)}
+      {/* KPI Cards Summary */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+        <Card style={{ padding: '16px 20px', borderColor: 'rgba(239, 68, 68, 0.3)' }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase' }}>Jami Qarzlar Qoldig'i</div>
+          <div style={{ fontSize: '22px', fontWeight: '800', fontFamily: 'var(--font-display)', color: 'var(--danger)', marginTop: '4px' }}>
+            {formatPrimary(totalRemainingUsd)}
           </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{fmtSecondary(totalDebtUsd)}</div>
-        </div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{formatSecondary(totalRemainingUsd)}</div>
+        </Card>
 
-        <div className="glass-card" style={{ padding: '16px' }}>
-          <div style={{ fontSize: '24px', marginBottom: '4px' }}>💵</div>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Oylik Kutilayotgan Tushum</div>
-          <div style={{ fontSize: '20px', fontWeight: '700', color: 'var(--neon-green)', marginTop: '4px' }}>
-            {fmtPrimary(monthlyExpectedUsd)}
+        <Card style={{ padding: '16px 20px' }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase' }}>Faol Nasiyadorlar</div>
+          <div style={{ fontSize: '22px', fontWeight: '800', fontFamily: 'var(--font-display)', color: 'var(--text-primary)', marginTop: '4px' }}>
+            {filteredDebtors.filter(d => d.status === 'active').length} kishi
           </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{fmtSecondary(monthlyExpectedUsd)}</div>
-        </div>
+        </Card>
 
-        <div className="glass-card" style={{ padding: '16px' }}>
-          <div style={{ fontSize: '24px', marginBottom: '4px' }}>👥</div>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Nasiyadorlar Soni</div>
-          <div style={{ fontSize: '20px', fontWeight: '700', color: 'var(--neon-blue)', marginTop: '4px' }}>
-            {filteredDebtors.length} kishi
+        <Card style={{ padding: '16px 20px' }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase' }}>Muddati O'tganlar</div>
+          <div style={{ fontSize: '22px', fontWeight: '800', fontFamily: 'var(--font-display)', color: 'var(--warning)', marginTop: '4px' }}>
+            {filteredDebtors.filter(d => d.status === 'overdue').length} kishi
           </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-            Faol: {filteredDebtors.filter(d => d.status === 'active').length} | Tugallangan: {filteredDebtors.filter(d => d.status === 'completed').length}
-          </div>
-        </div>
-
-        <div className="glass-card" style={{ padding: '16px' }}>
-          <div style={{ fontSize: '24px', marginBottom: '4px' }}>⚠️</div>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Muddati O'tganlar</div>
-          <div style={{ fontSize: '20px', fontWeight: '700', color: overdueCount > 0 ? 'var(--neon-red)' : 'var(--neon-green)', marginTop: '4px' }}>
-            {overdueCount} kishi
-          </div>
-          <div style={{ fontSize: '12px', color: overdueCount > 0 ? 'var(--neon-red)' : 'var(--text-muted)' }}>
-            {overdueCount > 0 ? 'Muddati kechikkan to\'lovlar bor' : 'Kechikishlar yo\'q'}
-          </div>
-        </div>
+        </Card>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="glass-card" style={{ padding: '16px', marginBottom: '20px' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', alignItems: 'center', justifyContent: 'space-between' }}>
+      {/* Search & Filter Toolbar */}
+      <Card style={{ padding: '16px 20px', display: 'flex', gap: '14px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ flex: 1, minWidth: '240px', position: 'relative' }}>
+          <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input
             type="text"
             className="form-control"
-            placeholder="Mijoz ismi, telefoni yoki tovar nomi bo'yicha qidirish..."
+            placeholder="Mijoz ismi, telefon raqami yoki tovar bo'yicha qidirish..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ maxWidth: '340px' }}
+            style={{ paddingLeft: '38px' }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', background: 'var(--bg-secondary)', padding: '3px', borderRadius: 'var(--radius-md)', border: '1px solid var(--card-border)' }}>
+          {[
+            { id: 'all', label: 'Barchasi' },
+            { id: 'active', label: 'Faol' },
+            { id: 'overdue', label: 'Muddati o\'tgan' },
+            { id: 'completed', label: 'Yopilgan' }
+          ].map(s => (
+            <button
+              key={s.id}
+              onClick={() => setFilterStatus(s.id)}
+              style={{
+                padding: '5px 12px',
+                borderRadius: 'var(--radius-sm)',
+                border: 'none',
+                background: filterStatus === s.id ? 'var(--brand-accent)' : 'transparent',
+                color: filterStatus === s.id ? '#ffffff' : 'var(--text-secondary)',
+                fontSize: '11.5px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </Card>
+
+      {/* Enterprise Data Table */}
+      <div className="table-container">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Mijoz Ismi va Telefon</th>
+              <th>Tovar Nomi</th>
+              <th>Jami Narxi</th>
+              <th>Boshlang'ich To'lov</th>
+              <th>Qolgan Qarz</th>
+              <th>Oylik To'lov</th>
+              <th>Har Oyning Sanasi</th>
+              <th>Holat</th>
+              <th style={{ textAlign: 'right' }}>Amallar</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              [1, 2, 3].map(i => (
+                <tr key={i}><td colSpan="9"><div className="skeleton" style={{ height: '36px' }} /></td></tr>
+              ))
+            ) : filteredDebtors.length === 0 ? (
+              <tr>
+                <td colSpan="9" style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
+                  <Users size={36} style={{ marginBottom: '10px', opacity: 0.5 }} />
+                  <div>Nasiyadorlar ro'yxati bo'sh!</div>
+                </td>
+              </tr>
+            ) : (
+              filteredDebtors.map(d => (
+                <tr key={d.id}>
+                  <td>
+                    <div style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{d.client_name}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--brand-accent)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Phone size={10} /> {d.phone}
+                    </div>
+                  </td>
+                  <td>
+                    <div style={{ fontWeight: '600' }}>{d.product_name}</div>
+                    <Badge variant="info">{d.store_type === 'moto' ? 'Moto Bozor' : 'Texno Bozor'}</Badge>
+                  </td>
+                  <td>
+                    <div>{formatPrimary(d.total_amount)}</div>
+                    <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>{formatSecondary(d.total_amount)}</div>
+                  </td>
+                  <td>
+                    <div style={{ color: 'var(--success)', fontWeight: '600' }}>{formatPrimary(d.down_payment)}</div>
+                  </td>
+                  <td>
+                    <div style={{ fontWeight: '700', color: 'var(--danger)' }}>{formatPrimary(d.remaining_amount)}</div>
+                    <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>{formatSecondary(d.remaining_amount)}</div>
+                  </td>
+                  <td>
+                    <div style={{ fontWeight: '600', color: 'var(--brand-gold)' }}>{formatPrimary(d.monthly_payment)} / oy</div>
+                    <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>{d.months_count} oy davomida</div>
+                  </td>
+                  <td>
+                    <Badge variant="warning">Har oyning {d.due_day}-kuni</Badge>
+                  </td>
+                  <td>
+                    {d.status === 'completed' ? (
+                      <Badge variant="success">Yopilgan ✅</Badge>
+                    ) : d.status === 'overdue' ? (
+                      <Badge variant="danger">Muddati o'tgan ⚠️</Badge>
+                    ) : (
+                      <Badge variant="info">Faol ⚡</Badge>
+                    )}
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                      {d.remaining_amount > 0 && (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => openPayModal(d)}
+                        >
+                          <CreditCard size={13} /> To'lov
+                        </Button>
+                      )}
+                      <Button
+                        variant="danger"
+                        iconOnly
+                        onClick={() => handleDeleteDebtor(d.id)}
+                        title="O'chirish"
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Yangi Nasiya Modal */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="Yangi Nasiya Rasmiylashtirish"
+        maxWidth="540px"
+      >
+        <form onSubmit={handleSaveDebtor} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <Input 
+            label="Mijoz F.I.SH. *" 
+            value={clientName} 
+            onChange={(e) => setClientName(e.target.value)} 
+            placeholder="Masalan: Alisher Karimov" 
+            required 
           />
 
-          <div style={{ display: 'flex', gap: '6px', background: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '10px', border: '1px solid var(--card-border)' }}>
-            {[
-              { key: 'all', label: 'Barchasi' },
-              { key: 'active', label: '⚡ Faol' },
-              { key: 'overdue', label: '⚠️ Kechikkan' },
-              { key: 'completed', label: '✅ Yopilgan' },
-            ].map(st => (
-              <button
-                key={st.key}
-                onClick={() => setFilterStatus(st.key)}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: filterStatus === st.key ? 'linear-gradient(135deg, var(--neon-blue), var(--neon-purple))' : 'transparent',
-                  color: filterStatus === st.key ? '#fff' : 'var(--text-secondary)',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
-              >
-                {st.label}
-              </button>
-            ))}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <Input label="Telefon Raqam *" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+998 90 123 45 67" required />
+            <Input label="Tovar Nomi *" value={productName} onChange={(e) => setProductName(e.target.value)} placeholder="iPhone 15 Pro Max" required />
           </div>
-        </div>
-      </div>
 
-      {/* Table */}
-      <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Yuklanmoqda...</div>
-        ) : filteredDebtors.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
-            <div style={{ fontSize: '40px', marginBottom: '12px' }}>📜</div>
-            <div>Hech qanday nasiya bitimi topilmadi.</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <Input label={`Jami Summa (${currency}) *`} type="number" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} min="0" required />
+            <Input label={`Boshlang'ich (${currency})`} type="number" value={downPayment} onChange={(e) => setDownPayment(e.target.value)} min="0" />
           </div>
-        ) : (
-          <div className="table-container">
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--card-border)', background: 'rgba(0,0,0,0.2)' }}>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', color: 'var(--text-muted)' }}>Mijoz / Telefon</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', color: 'var(--text-muted)' }}>Tovar & Do'kon</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', color: 'var(--text-muted)' }}>Jami / Qolgan Qarz</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', color: 'var(--text-muted)' }}>Oylik To'lov</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', color: 'var(--text-muted)' }}>Sanasi (Har Oy)</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', color: 'var(--text-muted)' }}>Holat</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)' }}>Amallar</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredDebtors.map(debtor => {
-                  const isOverdue = debtor.status === 'overdue';
-                  const isCompleted = debtor.status === 'completed';
 
-                  return (
-                    <tr key={debtor.id} style={{ borderBottom: '1px solid var(--card-border)' }}>
-                      <td style={{ padding: '14px 16px' }}>
-                        <div style={{ fontWeight: '700', color: '#fff', fontSize: '14px' }}>{debtor.client_name}</div>
-                        <div style={{ fontSize: '12px', color: 'var(--neon-blue)', marginTop: '2px' }}>{debtor.phone}</div>
-                      </td>
-                      <td style={{ padding: '14px 16px' }}>
-                        <div style={{ fontWeight: '600', color: 'var(--text-primary)', fontSize: '13px' }}>{debtor.product_name}</div>
-                        <div style={{ fontSize: '11px', color: debtor.store_type === 'moto' ? 'var(--neon-pink)' : 'var(--neon-blue)' }}>
-                          {debtor.store_type === 'moto' ? '🏍️ Moto Bozor' : '⚡ Texno Bozor'}
-                        </div>
-                      </td>
-                      <td style={{ padding: '14px 16px' }}>
-                        <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--neon-pink)' }}>
-                          {fmtPrimary(debtor.remaining_amount)}
-                        </div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                          Jami: {fmtPrimary(debtor.total_amount)}
-                        </div>
-                      </td>
-                      <td style={{ padding: '14px 16px' }}>
-                        <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--neon-green)' }}>
-                          {fmtPrimary(debtor.monthly_payment)} / oy
-                        </div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                          {debtor.months_count} oyga bo'lingan
-                        </div>
-                      </td>
-                      <td style={{ padding: '14px 16px' }}>
-                        <div style={{ fontSize: '13px', fontWeight: '600' }}>Har oyning {debtor.due_day}-sanasi</div>
-                      </td>
-                      <td style={{ padding: '14px 16px' }}>
-                        <span style={{
-                          padding: '4px 10px',
-                          borderRadius: '20px',
-                          fontSize: '11px',
-                          fontWeight: '700',
-                          background: isCompleted ? 'rgba(0, 245, 212, 0.15)' : isOverdue ? 'rgba(255, 56, 96, 0.15)' : 'rgba(0, 242, 254, 0.15)',
-                          color: isCompleted ? 'var(--neon-green)' : isOverdue ? 'var(--neon-red)' : 'var(--neon-blue)',
-                          border: `1px solid ${isCompleted ? 'var(--neon-green)' : isOverdue ? 'var(--neon-red)' : 'var(--neon-blue)'}`
-                        }}>
-                          {isCompleted ? '✅ Yopilgan' : isOverdue ? '⚠️ Kechikkan' : '⚡ Faol'}
-                        </span>
-                      </td>
-                      <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                          {!isCompleted && (
-                            <button
-                              onClick={() => openPayModal(debtor)}
-                              className="btn-primary"
-                              style={{ fontSize: '12px', padding: '6px 12px' }}
-                            >
-                              💵 To'lov Qabul Qilish
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleDeleteDebtor(debtor.id)}
-                            style={{ background: 'rgba(255,56,96,0.1)', border: '1px solid rgba(255,56,96,0.3)', color: '#ff3860', borderRadius: '6px', padding: '6px 10px', cursor: 'pointer' }}
-                          >
-                            🗑️
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <Input label="Muddat (Oylar soni)" type="number" value={monthsCount} onChange={(e) => setMonthsCount(e.target.value)} min="1" max="36" />
+            <Input label="Har Oyning Sanasi (1-31)" type="number" value={dueDay} onChange={(e) => setDueDay(e.target.value)} min="1" max="31" />
           </div>
-        )}
-      </div>
 
-      {/* Modal 1: Yangi Nasiya Qo'shish */}
-      {isModalOpen && createPortal(
-        <div className="modal-overlay">
-          <div className="modal-content glass-card" style={{ maxWidth: '560px', width: '90%', maxHeight: '85vh', overflowY: 'auto', padding: '24px' }}>
-            <div className="modal-header">
-              <h2>+ Yangi Nasiya Bitimi</h2>
-              <button onClick={() => setIsModalOpen(false)} className="close-btn">&times;</button>
-            </div>
-            <form onSubmit={handleSaveDebtor} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '14px' }}>
-              <div className="form-group">
-                <label>Mijoz F.I.SH (Ismi-familiyasi) *</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Masalan: Alisher Ro'ziyev"
-                  value={clientName}
-                  onChange={(e) => setClientName(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Telefon Raqami *</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="+998 90 123 45 67"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div className="form-group">
-                  <label>Tovar Nomi</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Masalan: iPhone 15 Pro"
-                    value={productName}
-                    onChange={(e) => setProductName(e.target.value)}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Do'kon Turi</label>
-                  <select className="form-control" value={storeType} onChange={(e) => setStoreType(e.target.value)}>
-                    <option value="texno">⚡ Texno Bozor</option>
-                    <option value="moto">🏍️ Moto Bozor</option>
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div className="form-group">
-                  <label>Jami Tovar Narxi ({currency}) *</label>
-                  <input
-                    type="number"
-                    className="form-control"
-                    value={totalAmount}
-                    onChange={(e) => setTotalAmount(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Boshlang'ich To'lov ({currency})</label>
-                  <input
-                    type="number"
-                    className="form-control"
-                    value={downPayment}
-                    onChange={(e) => setDownPayment(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div className="form-group">
-                  <label>Bo'lib to'lash muddati (Oylar)</label>
-                  <input
-                    type="number"
-                    className="form-control"
-                    value={monthsCount}
-                    onChange={(e) => setMonthsCount(e.target.value)}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Har oyning to'lov sanasi</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="31"
-                    className="form-control"
-                    value={dueDay}
-                    onChange={(e) => setDueDay(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>Qo'shimcha Izoh (Pasport, Kafillik b.)</label>
-                <textarea
-                  className="form-control"
-                  rows="2"
-                  placeholder="Pasport seriyasi, manzil va h.k."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                ></textarea>
-              </div>
-
-              <button type="submit" disabled={isSaving} className="btn-primary" style={{ width: '100%', justifyContent: 'center', height: '44px', marginTop: '10px' }}>
-                {isSaving ? 'Saqlanmoqda...' : '💾 Bitimni Saqlash'}
-              </button>
-            </form>
+          <div className="form-group">
+            <label className="form-label">Qo'shimcha Izoh</label>
+            <textarea className="form-control" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Pasport nusxasi olingan, kafil bor..." rows="2" />
           </div>
-        </div>,
-        document.body
-      )}
 
-      {/* Modal 2: To'lov Qabul Qilish */}
-      {isPayModalOpen && selectedDebtor && createPortal(
-        <div className="modal-overlay">
-          <div className="modal-content glass-card" style={{ maxWidth: '440px', width: '90%' }}>
-            <div className="modal-header">
-              <h2>💵 To'lov Qabul Qilish</h2>
-              <button onClick={() => setIsPayModalOpen(false)} className="close-btn">&times;</button>
-            </div>
-            <div style={{ margin: '14px 0', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid var(--card-border)' }}>
-              <div style={{ fontWeight: '700', color: '#fff', fontSize: '15px' }}>{selectedDebtor.client_name}</div>
-              <div style={{ color: 'var(--neon-pink)', fontSize: '13px', marginTop: '4px' }}>
-                Hozirgi Qolgan Qarz: <strong>{fmtPrimary(selectedDebtor.remaining_amount)}</strong>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
+            <Button variant="secondary" type="button" onClick={() => setIsModalOpen(false)}>Bekor qilish</Button>
+            <Button variant="primary" type="submit" loading={isSaving}>
+              Rasmiylashtirish
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* To'lov Qabul Qilish Modal */}
+      <Modal
+        isOpen={isPayModalOpen && !!selectedDebtor}
+        onClose={() => setIsPayModalOpen(false)}
+        title="To'lov Qabul Qilish"
+        maxWidth="440px"
+      >
+        {selectedDebtor && (
+          <>
+            <div style={{ marginBottom: '16px', background: 'var(--bg-secondary)', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--card-border)' }}>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>{selectedDebtor.client_name}</div>
+              <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{selectedDebtor.product_name}</div>
+              <div style={{ fontSize: '12px', color: 'var(--danger)', fontWeight: '700', marginTop: '4px' }}>
+                Hozirgi qarz: {formatPrimary(selectedDebtor.remaining_amount)}
               </div>
             </div>
 
             <form onSubmit={handleRecordPayment} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div className="form-group">
-                <label>Qabul Qilingan Summa ({currency}) *</label>
-                <input
-                  type="number"
-                  className="form-control"
-                  value={payAmount}
-                  onChange={(e) => setPayAmount(e.target.value)}
-                  autoFocus
-                  required
-                />
-              </div>
+              <Input 
+                label={`To'lanayotgan Summa (${currency}) *`} 
+                type="number" 
+                value={payAmount} 
+                onChange={(e) => setPayAmount(e.target.value)} 
+                min="1" 
+                required 
+                autoFocus 
+              />
 
-              <button type="submit" className="btn-primary" style={{ width: '100%', justifyContent: 'center', height: '44px' }}>
-                ✅ To'lovni Tasdiqlash
-              </button>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
+                <Button variant="secondary" type="button" onClick={() => setIsPayModalOpen(false)}>Bekor qilish</Button>
+                <Button variant="primary" type="submit">To'lovni Tasdiqlash</Button>
+              </div>
             </form>
-          </div>
-        </div>,
-        document.body
-      )}
+          </>
+        )}
+      </Modal>
     </div>
   );
 }

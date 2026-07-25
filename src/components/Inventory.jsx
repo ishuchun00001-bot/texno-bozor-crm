@@ -1,16 +1,39 @@
 import React, { useState } from 'react';
-import { createPortal } from 'react-dom';
 import * as XLSX from 'xlsx';
+import { 
+  Package, 
+  Plus, 
+  Search, 
+  FileSpreadsheet, 
+  Download, 
+  Upload, 
+  Edit3, 
+  Trash2, 
+  Image as ImageIcon
+} from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import { techIcons, mockProducts } from '../utils/mockData';
 import { formatCurrency, DEFAULT_RATES } from '../utils/currency';
 import { useToast } from './Toast';
+import Button from './ui/Button';
+import Badge from './ui/Badge';
+import Card from './ui/Card';
+import Input from './ui/Input';
+import Modal from './ui/Modal';
 
-export default function Inventory({ products = [], onRefresh, loading, rates = DEFAULT_RATES, currency = 'USD', currentStore = 'all' }) {
+export default function Inventory({ 
+  products = [], 
+  onRefresh, 
+  loading, 
+  rates = DEFAULT_RATES, 
+  currency = 'USD', 
+  currentStore = 'all' 
+}) {
   const toast = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
 
   // Form states
   const [name, setName] = useState('');
@@ -27,7 +50,6 @@ export default function Inventory({ products = [], onRefresh, loading, rates = D
   const [isSaving, setIsSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Modalni ochish (Qo'shish yoki Tahrirlash)
   const openModal = (product = null) => {
     setErrorMsg('');
     const rate = rates[currency] || 1;
@@ -67,7 +89,6 @@ export default function Inventory({ products = [], onRefresh, loading, rates = D
     setIsModalOpen(false);
   };
 
-  // Rasmni tanlash / Yuklash
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -80,7 +101,6 @@ export default function Inventory({ products = [], onRefresh, loading, rates = D
     }
   };
 
-  // Rasm yuklash
   const uploadImage = async () => {
     if (!imageFile) return imagePreview;
 
@@ -112,7 +132,6 @@ export default function Inventory({ products = [], onRefresh, loading, rates = D
     });
   };
 
-  // Mahsulotni saqlash
   const handleSave = async (e) => {
     e.preventDefault();
     setIsSaving(true);
@@ -184,7 +203,6 @@ export default function Inventory({ products = [], onRefresh, loading, rates = D
     }
   };
 
-  // Mahsulotni o'chirish
   const handleDelete = async (id) => {
     if (!window.confirm("Haqiqatan ham ushbu mahsulotni o'chirmoqchisiz?")) return;
 
@@ -208,7 +226,6 @@ export default function Inventory({ products = [], onRefresh, loading, rates = D
     }
   };
 
-  // EXCEL EXPORT
   const handleExportExcel = () => {
     if (products.length === 0) {
       toast.warning('Export qilish uchun omborda tovarlar mavjud emas!');
@@ -235,7 +252,6 @@ export default function Inventory({ products = [], onRefresh, loading, rates = D
     XLSX.writeFile(workbook, `Texno_Bozor_Ombor_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
-  // EXCEL SHABLON YUKLAB OLISH
   const handleDownloadTemplate = () => {
     const templateData = [
       {
@@ -247,16 +263,6 @@ export default function Inventory({ products = [], onRefresh, loading, rates = D
         "Zahira Soni": 10,
         "Kirim Narxi ($)": 280,
         "Sotish Narxi ($)": 360
-      },
-      {
-        "Tovar Nomi": "Samsung NoFrost Muzlatgich 320L",
-        "Brend": "Samsung",
-        "Model Nomi": "RB34T600SA",
-        "SKU": "SAMRB34",
-        "Kategoriya": "Maishiy texnika",
-        "Zahira Soni": 5,
-        "Kirim Narxi ($)": 520,
-        "Sotish Narxi ($)": 680
       }
     ];
 
@@ -266,7 +272,6 @@ export default function Inventory({ products = [], onRefresh, loading, rates = D
     XLSX.writeFile(workbook, "Texno_Bozor_Tovarlar_Shablon.xlsx");
   };
 
-  // EXCEL IMPORT
   const handleImportExcel = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -301,10 +306,11 @@ export default function Inventory({ products = [], onRefresh, loading, rates = D
             model: modelVal,
             sku: skuVal,
             category: categoryVal,
-            stock: isNaN(stockVal) ? 0 : stockVal,
-            cost_price: isNaN(costVal) ? 0 : costVal,
-            selling_price: isNaN(sellVal) ? 0 : sellVal,
-            image_url: techIcons.power
+            store_type: currentStore === 'moto' ? 'moto' : 'texno',
+            stock: stockVal,
+            cost_price: costVal,
+            selling_price: sellVal,
+            image_url: techIcons.phone
           };
         });
 
@@ -313,375 +319,275 @@ export default function Inventory({ products = [], onRefresh, loading, rates = D
           if (error) throw error;
         } else {
           let localProds = JSON.parse(localStorage.getItem('local_products') || '[]');
-          const newEntries = importedItems.map(item => ({
-            id: `prod-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+          const formatted = importedItems.map((item, idx) => ({
+            id: `prod-imp-${Date.now()}-${idx}`,
             ...item,
             created_at: new Date().toISOString()
           }));
-          localProds = [...localProds, ...newEntries];
+          localProds = [...formatted, ...localProds];
           localStorage.setItem('local_products', JSON.stringify(localProds));
-          localStorage.setItem('local_db_seeded', 'true');
         }
 
-        toast.success(`Muvaffaqiyatli! ${importedItems.length} ta tovar Excel'dan import qilindi. 🎉`);
+        toast.success(`${importedItems.length} ta tovar muvaffaqiyatli import qilindi! 🎉`);
         onRefresh();
       } catch (err) {
         console.error(err);
-        toast.error("Excel faylini o'qishda xatolik: " + err.message);
+        toast.error("Excel faylini o'qishda xatolik yuz berdi.");
       }
     };
     reader.readAsBinaryString(file);
-    e.target.value = ''; // Inputni tozalash
+    e.target.value = null;
   };
+
+  const categories = ['all', ...new Set(products.map(p => p.category).filter(Boolean))];
+
+  const filteredProducts = products.filter(p => {
+    const matchesSearch = 
+      (p.name && p.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (p.brand && p.brand.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (p.sku && p.sku.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory;
+
+    return matchesSearch && matchesCategory;
+  });
 
   const formatPrimary = (val) => formatCurrency(val, currency, rates);
   const formatSecondary = (val) => {
-    const secondaryCurr = currency === 'USD' ? 'UZS' : 'USD';
-    return formatCurrency(val, secondaryCurr, rates);
+    const sec = currency === 'USD' ? 'UZS' : 'USD';
+    return formatCurrency(val, sec, rates);
   };
 
-  // Qidiruv bo'yicha saralangan tovarlar
-  const filteredProducts = products.filter(p => {
-    const q = searchQuery.toLowerCase();
-    return (
-      (p.name && p.name.toLowerCase().includes(q)) ||
-      (p.brand && p.brand.toLowerCase().includes(q)) ||
-      (p.model && p.model.toLowerCase().includes(q)) ||
-      (p.sku && p.sku.toLowerCase().includes(q)) ||
-      (p.category && p.category.toLowerCase().includes(q))
-    );
-  });
-
   return (
-    <div className="page-fade-in">
-      <div className="page-header" style={{ flexWrap: 'wrap', gap: '16px' }}>
-        <div className="page-title">
-          <h1>Mahsulotlar Ombori</h1>
-          <p>Maishiy texnika va elektronikalarni rasmi, brendi, modeli va zahirasi bilan boshqarish paneli</p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* Header & Controls Bar */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+        <div>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '24px', fontWeight: '800', color: 'var(--text-primary)' }}>
+            Tovarlar Ombori
+          </h1>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px' }}>
+            Jami {products.length} ta mahsulot ro'yxati, zaxiralar va narxlarni boshqarish
+          </p>
         </div>
 
-        {/* Amallar tugmalari */}
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <button onClick={handleDownloadTemplate} className="btn-secondary" title="Excel Shablonini yuklab olish" style={{ fontSize: '13px', padding: '8px 12px' }}>
-            📄 Shablon (.xlsx)
-          </button>
+        {/* Actions Button Group */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <Button variant="secondary" size="sm" onClick={handleDownloadTemplate} title="Excel Shablonini yuklab olish">
+            <Download size={14} /> Shablon
+          </Button>
 
-          <label className="btn-secondary" style={{ fontSize: '13px', padding: '8px 12px', cursor: 'pointer', margin: 0, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            📥 Exceldan yuklash
-            <input type="file" accept=".xlsx, .xls, .csv" onChange={handleImportExcel} style={{ display: 'none' }} />
+          <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer', margin: 0, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <Upload size={14} /> Import (Excel)
+            <input type="file" accept=".xlsx, .xls" onChange={handleImportExcel} style={{ display: 'none' }} />
           </label>
 
-          <button onClick={handleExportExcel} className="btn-secondary" style={{ fontSize: '13px', padding: '8px 12px' }}>
-            📤 Excelga yuklash
-          </button>
+          <Button variant="secondary" size="sm" onClick={handleExportExcel}>
+            <FileSpreadsheet size={14} /> Export (Excel)
+          </Button>
 
-          <button onClick={() => openModal()} className="btn-primary" style={{ fontSize: '13px', padding: '8px 16px' }}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            + Yangi tovar
-          </button>
+          <Button variant="primary" onClick={() => openModal()}>
+            <Plus size={16} /> Yangi Tovar Qo'shish
+          </Button>
         </div>
       </div>
 
-      {/* Mahsulotlar jadvali va Qidiruv */}
-      <div className="glass-card">
-        {/* Search bar */}
-        <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-          <input
-            type="text"
-            className="form-control"
-            placeholder="Brend, Model, Tovar nomi yoki SKU bo'yicha qidirish..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ maxWidth: '380px' }}
-          />
+      {/* Search & Filter Toolbar */}
+      <Card style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: '260px', position: 'relative' }}>
+            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Tovar nomi, brend yoki SKU bo'yicha qidirish..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ paddingLeft: '38px' }}
+            />
+          </div>
+
           <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-            Jami: <strong style={{ color: 'var(--neon-blue)' }}>{filteredProducts.length}</strong> ta tovar
+            Natija: <strong style={{ color: 'var(--text-primary)' }}>{filteredProducts.length}</strong> ta tovar
           </div>
         </div>
 
-        <div className="table-container">
-          {loading ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-              Ombor yuklanmoqda...
-            </div>
-          ) : (
-            <table className="custom-table">
-              <thead>
-                <tr>
-                  <th>Bo'lim</th>
-                  <th>Rasm</th>
-                  <th>Brend</th>
-                  <th>Model Nomi</th>
-                  <th>Tovar Nomi</th>
-                  <th>SKU / Kod</th>
-                  <th>Kategoriya</th>
-                  <th>Zahira (Soni)</th>
-                  <th>Sotib Olingan</th>
-                  <th>Sotilayotgan</th>
-                  <th>Sof Foyda (dona)</th>
-                  <th style={{ textAlign: 'right' }}>Amallar</th>
+        {/* Category Filter Pills */}
+        {categories.length > 1 && (
+          <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
+            {categories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                style={{
+                  padding: '5px 12px',
+                  borderRadius: 'var(--radius-full)',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  border: '1px solid var(--card-border)',
+                  background: selectedCategory === cat ? 'var(--brand-accent)' : 'var(--bg-secondary)',
+                  color: selectedCategory === cat ? '#ffffff' : 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {cat === 'all' ? 'Barcha Kategoriyalar' : cat}
+              </button>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {/* Enterprise Data Table */}
+      <div className="table-container">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th style={{ width: '60px' }}>Rasm</th>
+              <th>Tovar Nomi</th>
+              <th>Kategoriya</th>
+              <th>SKU / Kod</th>
+              <th>Kirim Narxi</th>
+              <th>Sotish Narxi</th>
+              <th>Ombor Qoldig'i</th>
+              <th>Status</th>
+              <th style={{ textAlign: 'right' }}>Amallar</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              [1, 2, 3, 4, 5].map(i => (
+                <tr key={i}>
+                  <td colSpan="9"><div className="skeleton" style={{ height: '36px' }} /></td>
                 </tr>
-              </thead>
-              <tbody>
-                {filteredProducts.map((p) => {
-                  const unitProfit = p.selling_price - p.cost_price;
-                  const isLowStock = p.stock <= 5;
-                  const isMoto = (p.store_type || 'texno') === 'moto';
-                  return (
-                    <tr key={p.id}>
-                      <td>
-                        <span className="badge-category" style={{
-                          background: isMoto ? 'rgba(241, 91, 181, 0.15)' : 'rgba(0, 242, 254, 0.15)',
-                          color: isMoto ? 'var(--neon-pink)' : 'var(--neon-blue)',
-                          border: `1px solid ${isMoto ? 'var(--neon-pink)' : 'var(--neon-blue)'}`
-                        }}>
-                          {isMoto ? "🏍️ Moto" : "⚡ Texno"}
-                        </span>
-                      </td>
-                      <td>
-                        <img className="table-img" src={p.image_url || techIcons.phone} alt={p.name} />
-                      </td>
-                      <td>
-                        <span className="badge-category" style={{ background: 'rgba(0, 242, 254, 0.12)', color: 'var(--neon-blue)', border: '1px solid var(--neon-blue)' }}>
-                          {p.brand || "Brendsiz"}
-                        </span>
-                      </td>
-                      <td style={{ fontWeight: '500', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
-                        {p.model || "-"}
-                      </td>
-                      <td style={{ fontWeight: '600', minWidth: '180px', whiteSpace: 'normal', color: '#fff' }}>
-                        {p.name}
-                      </td>
-                      <td style={{ color: 'var(--text-muted)', fontFamily: 'monospace', fontSize: '13px', whiteSpace: 'nowrap' }}>{p.sku}</td>
-                      <td style={{ whiteSpace: 'nowrap' }}>
-                        <span className="badge-category">{p.category}</span>
-                      </td>
-                      <td style={{ fontWeight: '700', whiteSpace: 'nowrap', color: isLowStock ? 'var(--neon-red)' : 'var(--text-primary)' }}>
-                        {p.stock} dona {isLowStock && '⚠️'}
-                      </td>
-                      <td style={{ whiteSpace: 'nowrap' }}>
-                        {formatPrimary(p.cost_price)}
-                        <span className="currency-subtext">
-                          {formatSecondary(p.cost_price)}
-                        </span>
-                      </td>
-                      <td style={{ color: 'var(--neon-blue)', fontWeight: '600', whiteSpace: 'nowrap' }}>
-                        {formatPrimary(p.selling_price)}
-                        <span className="currency-subtext" style={{ color: 'var(--text-secondary)' }}>
-                          {formatSecondary(p.selling_price)}
-                        </span>
-                      </td>
-                      <td style={{ color: 'var(--neon-green)', fontWeight: '600', whiteSpace: 'nowrap' }}>
-                        +{formatPrimary(unitProfit)}
-                        <span className="currency-subtext" style={{ color: 'var(--text-secondary)' }}>
-                          +{formatSecondary(unitProfit)}
-                        </span>
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', gap: '8px' }}>
-                          <button onClick={() => openModal(p)} className="btn-secondary" style={{ padding: '6px 12px', fontSize: '13px' }}>
-                            ✏️ Tahrirlash
-                          </button>
-                          <button onClick={() => handleDelete(p.id)} className="btn-danger" style={{ padding: '6px 12px', fontSize: '13px' }}>
-                            🗑️
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {filteredProducts.length === 0 && (
-                  <tr>
-                    <td colSpan="11" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px' }}>
-                      {searchQuery ? "Qidiruv bo'yicha hech qanday tovar topilmadi." : "Omborda tovarlar topilmadi. Yangi tovar qo'shing yoki Exceldan yuklang."}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          )}
-        </div>
+              ))
+            ) : filteredProducts.length === 0 ? (
+              <tr>
+                <td colSpan="9" style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
+                  <Package size={36} style={{ marginBottom: '10px', opacity: 0.5 }} />
+                  <div>Mos keluvchi tovarlar topilmadi!</div>
+                </td>
+              </tr>
+            ) : (
+              filteredProducts.map(p => (
+                <tr key={p.id}>
+                  <td>
+                    <img 
+                      src={p.image_url || techIcons.phone} 
+                      alt={p.name} 
+                      style={{ width: '38px', height: '38px', borderRadius: '8px', objectFit: 'cover' }} 
+                    />
+                  </td>
+                  <td>
+                    <div style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{p.name}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{p.brand} {p.model}</div>
+                  </td>
+                  <td>
+                    <Badge variant="info">{p.category || 'Umumiy'}</Badge>
+                  </td>
+                  <td>
+                    <code style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{p.sku || '-'}</code>
+                  </td>
+                  <td>
+                    <div>{formatPrimary(p.cost_price)}</div>
+                    <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>{formatSecondary(p.cost_price)}</div>
+                  </td>
+                  <td>
+                    <div style={{ fontWeight: '700', color: 'var(--brand-gold)' }}>{formatPrimary(p.selling_price)}</div>
+                    <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>{formatSecondary(p.selling_price)}</div>
+                  </td>
+                  <td>
+                    <span style={{ fontWeight: '700', fontSize: '14px' }}>{p.stock} dona</span>
+                  </td>
+                  <td>
+                    {p.stock > 5 ? (
+                      <Badge variant="success">Omborda yetarli</Badge>
+                    ) : p.stock > 0 ? (
+                      <Badge variant="warning">Zahira oz (≤5)</Badge>
+                    ) : (
+                      <Badge variant="danger">Tugagan</Badge>
+                    )}
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                      <Button variant="secondary" iconOnly onClick={() => openModal(p)} title="Tahrirlash">
+                        <Edit3 size={14} />
+                      </Button>
+                      <Button variant="danger" iconOnly onClick={() => handleDelete(p.id)} title="O'chirish">
+                        <Trash2 size={14} />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
-      {/* Mahsulot qo'shish / tahrirlash Modal oynasi */}
-      {isModalOpen && createPortal(
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '640px' }}>
-            <div className="modal-header">
-              <h3>{editingProduct ? "Mahsulotni Tahrirlash" : "Yangi Mahsulot Qo'shish"}</h3>
-              <button onClick={closeModal} className="close-btn">&times;</button>
-            </div>
-            <form onSubmit={handleSave}>
-              <div className="modal-body">
-                {errorMsg && (
-                  <div style={{ color: 'var(--neon-red)', background: 'rgba(255,56,96,0.08)', padding: '12px', borderLeft: '3px solid var(--neon-red)', borderRadius: '4px', marginBottom: '16px', fontSize: '13px' }}>
-                    {errorMsg}
-                  </div>
-                )}
-
-                <div className="form-group">
-                  <label>Mahsulot Nomi *</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Masalan: Samsung NoFrost Muzlatgich 320L..."
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Brend (Ishlab chiqaruvchi) *</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Masalan: Samsung, Artel, LG, Apple..."
-                      value={brand}
-                      onChange={(e) => setBrand(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Model Nomi / Seriyasi</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Masalan: RB34T600SA, ART-WM-70..."
-                      value={model}
-                      onChange={(e) => setModel(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Do'kon Turi (Bo'lim) *</label>
-                    <select
-                      className="form-control"
-                      value={storeType}
-                      onChange={(e) => setStoreType(e.target.value)}
-                      required
-                    >
-                      <option value="texno">⚡ Texno Bozor (Maishiy texnika & Elektronika)</option>
-                      <option value="moto">🏍️ Moto Bozor (Skuterlar, Mopedlar, Moto texnika)</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>Kategoriya *</label>
-                    <select
-                      className="form-control"
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
-                    >
-                      <optgroup label="⚡ Texno Bozor">
-                        <option value="Maishiy texnika">Maishiy texnika</option>
-                        <option value="Televizorlar">Televizorlar</option>
-                        <option value="Smartfonlar">Smartfonlar</option>
-                        <option value="Noutbuklar">Noutbuklar</option>
-                        <option value="Aksessuarlar">Aksessuarlar</option>
-                        <option value="Audio">Audio qurilmalar</option>
-                      </optgroup>
-                      <optgroup label="🏍️ Moto Bozor">
-                        <option value="Skuterlar">Skuterlar</option>
-                        <option value="Mopedlar">Mopedlar</option>
-                        <option value="Elektrobayklar">Elektrobayklar</option>
-                        <option value="Mototsikllar">Mototsikllar</option>
-                        <option value="Moto Aksessuarlar">Moto Aksessuarlar</option>
-                        <option value="Ehtiyot qismlar">Ehtiyot qismlar</option>
-                      </optgroup>
-                      <option value="Boshqa">Boshqalar</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label>SKU / Shtrix-kod</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Masalan: SAMRB34 yoki MOTO-150"
-                    value={sku}
-                    onChange={(e) => setSku(e.target.value)}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Omborda mavjud soni *</label>
-                  <input
-                    type="number"
-                    className="form-control"
-                    value={stock}
-                    onChange={(e) => setStock(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                    required
-                  />
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Sotib Olingan Narxi ({currency}) *</label>
-                    <input
-                      type="number"
-                      className="form-control"
-                      value={costPrice}
-                      onChange={(e) => setCostPrice(Math.max(0, parseFloat(e.target.value) || 0))}
-                      required
-                    />
-                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                      ~ {formatSecondary((costPrice / (rates[currency] || 1)))}
-                    </div>
-                  </div>
-                  <div className="form-group">
-                    <label>Sotilayotgan Narxi ({currency}) *</label>
-                    <input
-                      type="number"
-                      className="form-control"
-                      value={sellingPrice}
-                      onChange={(e) => setSellingPrice(Math.max(0, parseFloat(e.target.value) || 0))}
-                      required
-                    />
-                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                      ~ {formatSecondary((sellingPrice / (rates[currency] || 1)))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label>Mahsulot Rasmi (Rasm yuklash)</label>
-                  <div className="image-upload-wrapper" onClick={() => document.getElementById('image-file-input').click()}>
-                    <input
-                      type="file"
-                      id="image-file-input"
-                      accept="image/*"
-                      style={{ display: 'none' }}
-                      onChange={handleImageChange}
-                    />
-                    {imagePreview ? (
-                      <div>
-                        <img src={imagePreview} className="image-preview" alt="Preview" />
-                        <div style={{ fontSize: '13px', color: 'var(--neon-blue)', fontWeight: '500' }}>Rasmni almashtirish</div>
-                      </div>
-                    ) : (
-                      <div className="upload-placeholder">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Faylni yuklash uchun bosing</div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button type="button" onClick={closeModal} className="btn-secondary">Bekor qilish</button>
-                <button type="submit" disabled={isSaving} className="btn-primary">
-                  {isSaving ? "Saqlanmoqda..." : "Saqlash"}
-                </button>
-              </div>
-            </form>
+      {/* Product Add / Edit Modal */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={closeModal}
+        title={editingProduct ? 'Mahsulotni Tahrirlash' : 'Yangi Tovar Qo\'shish'}
+        maxWidth="540px"
+      >
+        {errorMsg && (
+          <div style={{ padding: '10px 14px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid var(--danger)', color: 'var(--danger)', borderRadius: 'var(--radius-md)', marginBottom: '16px', fontSize: '12.5px' }}>
+            {errorMsg}
           </div>
-        </div>,
-        document.body
-      )}
+        )}
+
+        <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <Input 
+            label="Tovar Nomi *" 
+            value={name} 
+            onChange={(e) => setName(e.target.value)} 
+            placeholder="Masalan: iPhone 15 Pro Max 256GB" 
+            required 
+          />
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <Input label="Brend" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="Apple" />
+            <Input label="Model" value={model} onChange={(e) => setModel(e.target.value)} placeholder="A3106" />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <Input label="SKU / Shtrix Kod" value={sku} onChange={(e) => setSku(e.target.value)} placeholder="SKU-88239" />
+            <Input label="Kategoriya" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Smartfonlar" />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+            <Input label="Zahira Soni *" type="number" value={stock} onChange={(e) => setStock(e.target.value)} min="0" required />
+            <Input label={`Kirim (${currency}) *`} type="number" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} min="0" required />
+            <Input label={`Sotish (${currency}) *`} type="number" value={sellingPrice} onChange={(e) => setSellingPrice(e.target.value)} min="0" required />
+          </div>
+
+          {/* Profit Margin Preview Hint */}
+          {sellingPrice > 0 && costPrice > 0 && (
+            <div style={{ fontSize: '12px', color: sellingPrice >= costPrice ? 'var(--success)' : 'var(--danger)', background: 'var(--bg-secondary)', padding: '8px 12px', borderRadius: 'var(--radius-sm)' }}>
+              Kutilayotgan foyda: <strong>{formatPrimary(sellingPrice - costPrice)}</strong> / dona (Margin: {Math.round(((sellingPrice - costPrice) / sellingPrice) * 100)}%)
+            </div>
+          )}
+
+          {/* Rasm fayli yuklash */}
+          <div className="form-group">
+            <label className="form-label">Mahsulot Rasmi</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <img src={imagePreview} alt="Preview" style={{ width: '48px', height: '48px', borderRadius: '8px', objectFit: 'cover', border: '1px solid var(--card-border)' }} />
+              <input type="file" accept="image/*" onChange={handleImageChange} style={{ fontSize: '12px', color: 'var(--text-muted)' }} />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
+            <Button variant="secondary" type="button" onClick={closeModal}>Bekor qilish</Button>
+            <Button variant="primary" type="submit" loading={isSaving}>
+              {editingProduct ? 'Yangilash' : 'Saqlash'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

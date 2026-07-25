@@ -1,8 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
+import { 
+  Receipt, 
+  Search, 
+  FileSpreadsheet, 
+  Trash2, 
+  ChevronDown, 
+  ChevronUp, 
+  Printer 
+} from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import { formatCurrency, DEFAULT_RATES } from '../utils/currency';
 import { useToast } from './Toast';
+import Button from './ui/Button';
+import Badge from './ui/Badge';
+import Card from './ui/Card';
 
 export default function SalesHistory({
   sales = [],
@@ -14,27 +26,24 @@ export default function SalesHistory({
   currentStore = 'all',
 }) {
   const toast = useToast();
-  const [filterPeriod, setFilterPeriod] = useState('all'); // 'today','week','month','all'
+  const [filterPeriod, setFilterPeriod] = useState('all');
   const [filterStore, setFilterStore] = useState(currentStore);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedSaleId, setExpandedSaleId] = useState(null);
   const [isDeleting, setIsDeleting] = useState(null);
+  const [selectedReceiptSale, setSelectedReceiptSale] = useState(null);
 
-  // currentStore prop o'zgarganda filterni yangilash
   useEffect(() => {
     setFilterStore(currentStore);
   }, [currentStore]);
 
-  // Filtrlash
   const getFilteredSales = () => {
     let filtered = [...sales];
 
-    // Do'kon filtri
     if (filterStore !== 'all') {
       filtered = filtered.filter(s => (s.store_type || 'texno') === filterStore);
     }
 
-    // Vaqt filtri
     const now = new Date();
     if (filterPeriod === 'today') {
       const start = new Date(now); start.setHours(0, 0, 0, 0);
@@ -47,7 +56,6 @@ export default function SalesHistory({
       filtered = filtered.filter(s => new Date(s.created_at) >= start);
     }
 
-    // Qidiruv
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter(s =>
@@ -56,21 +64,18 @@ export default function SalesHistory({
       );
     }
 
-    // Sanasi bo'yicha teskari tartiblash (yangi → eski)
     filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     return filtered;
   };
 
   const filteredSales = getFilteredSales();
 
-  // Jami hisob-kitoblar
   const totals = filteredSales.reduce((acc, s) => ({
     revenue: acc.revenue + (parseFloat(s.total_amount) || 0),
     cost: acc.cost + (parseFloat(s.total_cost) || 0),
     profit: acc.profit + (parseFloat(s.profit) || 0),
   }), { revenue: 0, cost: 0, profit: 0 });
 
-  // Savdoni o'chirish
   const handleDelete = async (saleId) => {
     if (!window.confirm("Bu savdoni o'chirishni tasdiqlaysizmi? Bu amalni qaytarib bo'lmaydi!")) return;
     setIsDeleting(saleId);
@@ -94,307 +99,302 @@ export default function SalesHistory({
     }
   };
 
-  // Excel eksport
   const handleExportExcel = () => {
     if (filteredSales.length === 0) return;
 
-    const exportData = filteredSales.map((s, idx) => {
-      // Bu savdodagi tovarlar
-      const items = saleItems.filter(i => i.sale_id === s.id);
-      const itemNames = items.map(i => {
-        const prod = products.find(p => p.id === i.product_id);
-        return prod ? `${prod.name} x${i.quantity}` : `Tovar x${i.quantity}`;
-      }).join('; ');
+    const exportData = filteredSales.map((s, idx) => ({
+      "№": idx + 1,
+      "Sotuv ID": s.id,
+      "Sana": new Date(s.created_at).toLocaleString('uz-UZ'),
+      "Do'kon": s.store_type === 'moto' ? 'Moto Bozor' : 'Texno Bozor',
+      "Jami Summa ($)": s.total_amount || 0,
+      "Tannarx ($)": s.total_cost || 0,
+      "Sof Foyda ($)": s.profit || 0,
+      "To'lov Turi": s.payment_method || 'Naqd',
+      "Jami Summa (SO'M)": Math.round((s.total_amount || 0) * (rates['UZS'] || 12800)),
+      "Sof Foyda (SO'M)": Math.round((s.profit || 0) * (rates['UZS'] || 12800))
+    }));
 
-      const date = new Date(s.created_at);
-      return {
-        '№': idx + 1,
-        'Sana': date.toLocaleDateString('uz-UZ'),
-        'Vaqt': date.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' }),
-        "Do'kon": (s.store_type || 'texno') === 'moto' ? 'Moto Bozor' : 'Texno Bozor',
-        'Tovarlar': itemNames || '—',
-        'Jami Summa ($)': parseFloat(s.total_amount) || 0,
-        'Sof Foyda ($)': parseFloat(s.profit) || 0,
-        "Jami Summa (So'm)": Math.round((parseFloat(s.total_amount) || 0) * (rates.UZS || 12800)),
-        "Sof Foyda (So'm)": Math.round((parseFloat(s.profit) || 0) * (rates.UZS || 12800)),
-      };
-    });
-
-    // Jami qator
-    exportData.push({
-      '№': '',
-      'Sana': 'JAMI:',
-      'Vaqt': '',
-      "Do'kon": '',
-      'Tovarlar': `${filteredSales.length} ta savdo`,
-      'Jami Summa ($)': parseFloat(totals.revenue.toFixed(2)),
-      'Sof Foyda ($)': parseFloat(totals.profit.toFixed(2)),
-      "Jami Summa (So'm)": Math.round(totals.revenue * (rates.UZS || 12800)),
-      "Sof Foyda (So'm)": Math.round(totals.profit * (rates.UZS || 12800)),
-    });
-
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Sotuvlar Tarixi');
-    XLSX.writeFile(wb, `Sotuvlar_Tarixi_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Sotuvlar Tarixi");
+    XLSX.writeFile(workbook, `Texno_Bozor_Sotuvlar_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
-  const fmt = (val) => formatCurrency(val, currency, rates);
-  const fmtUzs = (val) => formatCurrency(val, 'UZS', rates);
-
-  const storeLabel = (type) => {
-    if (type === 'moto') return { label: '🏍️ Moto', color: 'var(--neon-pink)' };
-    return { label: '⚡ Texno', color: 'var(--neon-blue)' };
+  const getSaleItemsForSale = (saleId) => {
+    return saleItems.filter(i => i.sale_id === saleId);
   };
 
-  const periodLabels = [
-    { key: 'today', label: 'Bugun' },
-    { key: 'week', label: '7 kun' },
-    { key: 'month', label: '30 kun' },
-    { key: 'all', label: 'Hammasi' },
-  ];
+  const formatPrimary = (val) => formatCurrency(val, currency, rates);
+  const formatSecondary = (val) => {
+    const sec = currency === 'USD' ? 'UZS' : 'USD';
+    return formatCurrency(val, sec, rates);
+  };
 
   return (
-    <div className="page-fade-in">
-      {/* Header */}
-      <div className="page-header" style={{ flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
-        <div className="page-title">
-          <h1>Sotuvlar Tarixi</h1>
-          <p>Barcha savdolar ro'yxati, filtrlash va Excel hisobot eksporti</p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* Header & Export Toolbar */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+        <div>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '24px', fontWeight: '800', color: 'var(--text-primary)' }}>
+            Sotuvlar Tarixi
+          </h1>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px' }}>
+            Barcha amalga oshirilgan savdolar va tushumlar hisoboti
+          </p>
         </div>
-        <button
-          onClick={handleExportExcel}
-          className="btn-primary"
-          disabled={filteredSales.length === 0}
-          style={{ fontSize: '13px', padding: '8px 18px' }}
-        >
-          📥 Excel Eksport ({filteredSales.length} ta)
-        </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <Button variant="secondary" size="sm" onClick={handleExportExcel}>
+            <FileSpreadsheet size={14} /> Export (Excel)
+          </Button>
+        </div>
       </div>
 
-      {/* Metrika kartalar */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-        {[
-          { label: 'Savdolar Soni', value: filteredSales.length + ' ta', icon: '🧾', color: 'var(--neon-blue)' },
-          { label: 'Jami Tushum', value: fmt(totals.revenue), icon: '💵', color: 'var(--neon-green)' },
-          { label: 'Sof Foyda', value: fmt(totals.profit), icon: '📈', color: 'var(--neon-purple)' },
-          { label: "Foyda (So'm)", value: fmtUzs(totals.profit), icon: '🏦', color: 'var(--neon-pink)' },
-        ].map((m, i) => (
-          <div key={i} className="glass-card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div style={{ fontSize: '24px' }}>{m.icon}</div>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{m.label}</div>
-            <div style={{ fontSize: '18px', fontWeight: '700', color: m.color }}>{m.value}</div>
+      {/* Totals Metric Summary Bar */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+        <Card style={{ padding: '16px 20px' }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase' }}>Jami Savdolar</div>
+          <div style={{ fontSize: '22px', fontWeight: '800', fontFamily: 'var(--font-display)', color: 'var(--text-primary)', marginTop: '4px' }}>
+            {filteredSales.length} ta
           </div>
-        ))}
+        </Card>
+
+        <Card style={{ padding: '16px 20px' }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase' }}>Umumiy Tushum</div>
+          <div style={{ fontSize: '22px', fontWeight: '800', fontFamily: 'var(--font-display)', color: 'var(--brand-gold)', marginTop: '4px' }}>
+            {formatPrimary(totals.revenue)}
+          </div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{formatSecondary(totals.revenue)}</div>
+        </Card>
+
+        <Card style={{ padding: '16px 20px', borderColor: 'rgba(16, 185, 129, 0.3)' }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase' }}>Jami Sof Foyda</div>
+          <div style={{ fontSize: '22px', fontWeight: '800', fontFamily: 'var(--font-display)', color: 'var(--success)', marginTop: '4px' }}>
+            {formatPrimary(totals.profit)}
+          </div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{formatSecondary(totals.profit)}</div>
+        </Card>
       </div>
 
-      {/* Filtrlar */}
-      <div className="glass-card" style={{ padding: '16px', marginBottom: '20px' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
-          {/* Qidiruv */}
+      {/* Filter Toolbar */}
+      <Card style={{ padding: '16px 20px', display: 'flex', gap: '14px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ flex: 1, minWidth: '240px', position: 'relative' }}>
+          <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input
             type="text"
             className="form-control"
-            placeholder="Savdo ID bo'yicha qidirish..."
+            placeholder="Sotuv ID yoki summa bo'yicha qidirish..."
             value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            style={{ maxWidth: '260px', padding: '8px 12px', fontSize: '13px' }}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{ paddingLeft: '38px' }}
           />
-
-          {/* Vaqt filtri */}
-          <div style={{ display: 'flex', gap: '6px', background: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '10px', border: '1px solid var(--card-border)' }}>
-            {periodLabels.map(p => (
-              <button
-                key={p.key}
-                onClick={() => setFilterPeriod(p.key)}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: '7px',
-                  border: 'none',
-                  background: filterPeriod === p.key ? 'linear-gradient(135deg, var(--neon-blue), var(--neon-purple))' : 'transparent',
-                  color: filterPeriod === p.key ? '#fff' : 'var(--text-secondary)',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                }}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Do'kon filtri */}
-          <div style={{ display: 'flex', gap: '6px', background: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '10px', border: '1px solid var(--card-border)' }}>
-            {[
-              { key: 'all', label: '🌐 Hammasi' },
-              { key: 'texno', label: '⚡ Texno' },
-              { key: 'moto', label: '🏍️ Moto' },
-            ].map(s => (
-              <button
-                key={s.key}
-                onClick={() => setFilterStore(s.key)}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: '7px',
-                  border: 'none',
-                  background: filterStore === s.key ? 'rgba(255,255,255,0.1)' : 'transparent',
-                  color: filterStore === s.key ? '#fff' : 'var(--text-muted)',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                }}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
         </div>
-      </div>
 
-      {/* Sotuvlar jadvali */}
-      <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
-        {filteredSales.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
-            <div style={{ fontSize: '48px', marginBottom: '12px' }}>🧾</div>
-            <div style={{ fontSize: '16px', fontWeight: '600' }}>Savdolar topilmadi</div>
-            <div style={{ fontSize: '13px', marginTop: '6px' }}>Filtr yoki qidiruv shartlarini o'zgartiring</div>
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--card-border)', background: 'rgba(0,0,0,0.2)' }}>
-                  {['Sana & Vaqt', "Do'kon", 'Jami Summa', 'Sof Foyda', 'Tovarlar', 'Amallar'].map(h => (
-                    <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredSales.map((sale, idx) => {
-                  const items = saleItems.filter(i => i.sale_id === sale.id);
-                  const isExpanded = expandedSaleId === sale.id;
-                  const date = new Date(sale.created_at);
-                  const sl = storeLabel(sale.store_type);
+        {/* Period Filter Buttons */}
+        <div style={{ display: 'flex', background: 'var(--bg-secondary)', padding: '3px', borderRadius: 'var(--radius-md)', border: '1px solid var(--card-border)' }}>
+          {[
+            { id: 'today', label: 'Bugun' },
+            { id: 'week', label: 'Shu Hafta' },
+            { id: 'month', label: 'Shu Oy' },
+            { id: 'all', label: 'Barchasi' }
+          ].map(p => (
+            <button
+              key={p.id}
+              onClick={() => setFilterPeriod(p.id)}
+              style={{
+                padding: '5px 12px',
+                borderRadius: 'var(--radius-sm)',
+                border: 'none',
+                background: filterPeriod === p.id ? 'var(--brand-accent)' : 'transparent',
+                color: filterPeriod === p.id ? '#ffffff' : 'var(--text-secondary)',
+                fontSize: '11.5px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </Card>
 
-                  return (
-                    <React.Fragment key={sale.id}>
-                      <tr
-                        style={{
-                          borderBottom: '1px solid var(--card-border)',
-                          background: isExpanded ? 'rgba(0,242,254,0.04)' : idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)',
-                          transition: 'background 0.2s',
-                          cursor: 'pointer',
-                        }}
-                        onClick={() => setExpandedSaleId(isExpanded ? null : sale.id)}
-                      >
-                        <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                          <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>
-                            {date.toLocaleDateString('uz-UZ', { day: '2-digit', month: 'short', year: 'numeric' })}
-                          </div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                            {date.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
-                          </div>
-                        </td>
-                        <td style={{ padding: '12px 16px' }}>
-                          <span style={{
-                            fontSize: '12px',
-                            fontWeight: '700',
-                            color: sl.color,
-                            background: sl.color + '22',
-                            padding: '3px 10px',
-                            borderRadius: '20px',
-                            border: `1px solid ${sl.color}44`,
-                          }}>
-                            {sl.label}
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                          <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--neon-green)' }}>
-                            {fmt(parseFloat(sale.total_amount) || 0)}
-                          </div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                            {fmtUzs(parseFloat(sale.total_amount) || 0)}
-                          </div>
-                        </td>
-                        <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                          <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--neon-purple)' }}>
-                            +{fmt(parseFloat(sale.profit) || 0)}
-                          </div>
-                        </td>
-                        <td style={{ padding: '12px 16px' }}>
-                          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                            {items.length} turdagi tovar
-                          </span>
-                          <span style={{ marginLeft: '8px', fontSize: '12px', color: isExpanded ? 'var(--neon-blue)' : 'var(--text-muted)' }}>
-                            {isExpanded ? '▲' : '▼'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px 16px' }}>
-                          <button
-                            onClick={e => { e.stopPropagation(); handleDelete(sale.id); }}
-                            disabled={isDeleting === sale.id}
-                            style={{
-                              background: 'rgba(255,56,96,0.1)',
-                              border: '1px solid rgba(255,56,96,0.3)',
-                              color: '#ff3860',
-                              borderRadius: '8px',
-                              padding: '4px 10px',
-                              fontSize: '12px',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s',
-                            }}
+      {/* Data Table */}
+      <div className="table-container">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th style={{ width: '40px' }}></th>
+              <th>Sotuv ID</th>
+              <th>Sana va Vaqt</th>
+              <th>Do'kon</th>
+              <th>Jami Summa</th>
+              <th>Sof Foyda</th>
+              <th>To'lov Turi</th>
+              <th style={{ textAlign: 'right' }}>Amallar</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredSales.length === 0 ? (
+              <tr>
+                <td colSpan="8" style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
+                  <Receipt size={36} style={{ marginBottom: '10px', opacity: 0.5 }} />
+                  <div>Mos keluvchi sotuvlar tarixi topilmadi!</div>
+                </td>
+              </tr>
+            ) : (
+              filteredSales.map(sale => {
+                const isExpanded = expandedSaleId === sale.id;
+                const items = getSaleItemsForSale(sale.id);
+
+                return (
+                  <React.Fragment key={sale.id}>
+                    <tr>
+                      <td>
+                        <button
+                          onClick={() => setExpandedSaleId(isExpanded ? null : sale.id)}
+                          style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                        >
+                          {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        </button>
+                      </td>
+                      <td>
+                        <code style={{ fontSize: '11.5px', fontWeight: '700', color: 'var(--brand-gold)' }}>#{sale.id.toString().substring(0, 8)}</code>
+                      </td>
+                      <td>
+                        <div style={{ fontSize: '13px', fontWeight: '500' }}>{new Date(sale.created_at).toLocaleDateString('uz-UZ')}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{new Date(sale.created_at).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}</div>
+                      </td>
+                      <td>
+                        <Badge variant="info">
+                          {sale.store_type === 'moto' ? 'Moto Bozor' : 'Texno Bozor'}
+                        </Badge>
+                      </td>
+                      <td>
+                        <div style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{formatPrimary(sale.total_amount)}</div>
+                        <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>{formatSecondary(sale.total_amount)}</div>
+                      </td>
+                      <td>
+                        <div style={{ fontWeight: '700', color: 'var(--success)' }}>{formatPrimary(sale.profit)}</div>
+                        <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>{formatSecondary(sale.profit)}</div>
+                      </td>
+                      <td>
+                        <Badge variant="success">
+                          {sale.payment_method || 'Naqd'}
+                        </Badge>
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                          <Button
+                            variant="secondary"
+                            iconOnly
+                            onClick={() => setSelectedReceiptSale(sale)}
+                            title="Chek ko'rish"
                           >
-                            {isDeleting === sale.id ? '...' : '🗑️'}
-                          </button>
+                            <Printer size={14} />
+                          </Button>
+                          <Button
+                            variant="danger"
+                            iconOnly
+                            onClick={() => handleDelete(sale.id)}
+                            disabled={isDeleting === sale.id}
+                            title="O'chirish"
+                          >
+                            <Trash2 size={14} />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* Expanded Items Drawer Row */}
+                    {isExpanded && (
+                      <tr>
+                        <td colSpan="8" style={{ background: 'var(--bg-secondary)', padding: '16px 24px' }}>
+                          <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--brand-gold)', textTransform: 'uppercase', marginBottom: '8px' }}>
+                            Sotilgan Tovarlar Tarkibi ({items.length} dona)
+                          </div>
+                          {items.length === 0 ? (
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Tovar detali saqlanmagan.</div>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              {items.map(item => {
+                                const prod = products.find(p => p.id === item.product_id);
+                                return (
+                                  <div key={item.id || item.product_id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: 'var(--text-secondary)', padding: '4px 0', borderBottom: '1px dashed var(--card-border)' }}>
+                                    <span>• {prod ? prod.name : 'Tovar ID: ' + item.product_id} x {item.quantity} dona</span>
+                                    <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{formatPrimary((item.price || 0) * (item.quantity || 1))}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </td>
                       </tr>
-
-                      {/* Kengaytirilgan tovarlar ro'yxati */}
-                      {isExpanded && (
-                        <tr style={{ background: 'rgba(0,242,254,0.03)' }}>
-                          <td colSpan={6} style={{ padding: '0 16px 14px 48px' }}>
-                            <div style={{ borderLeft: '2px solid var(--neon-blue)', paddingLeft: '16px', marginTop: '8px' }}>
-                              {items.length === 0 ? (
-                                <div style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Tovar ma'lumotlari topilmadi</div>
-                              ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                  {items.map(item => {
-                                    const prod = products.find(p => p.id === item.product_id);
-                                    return (
-                                      <div key={item.id} style={{ display: 'flex', gap: '12px', alignItems: 'center', fontSize: '12px' }}>
-                                        <span style={{ color: 'var(--neon-blue)', fontWeight: '700', minWidth: '24px' }}>×{item.quantity}</span>
-                                        <span style={{ color: 'var(--text-primary)', fontWeight: '500' }}>
-                                          {prod ? prod.name : 'Noma\'lum tovar'}
-                                        </span>
-                                        {prod && (
-                                          <span style={{ color: 'var(--text-muted)' }}>
-                                            {prod.brand && `[${prod.brand}]`}
-                                          </span>
-                                        )}
-                                        <span style={{ marginLeft: 'auto', color: 'var(--neon-green)', fontWeight: '600' }}>
-                                          {fmt((item.selling_price || 0) * item.quantity)}
-                                        </span>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                    )}
+                  </React.Fragment>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </div>
+
+      {/* POS Thermal Receipt Modal */}
+      {selectedReceiptSale && (
+        <div className="modal-backdrop" onClick={() => setSelectedReceiptSale(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '380px', padding: '24px', background: '#ffffff', color: '#000000', borderRadius: '12px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '16px', borderBottom: '1px dashed #000', paddingBottom: '12px' }}>
+              <div style={{ fontSize: '18px', fontWeight: '900', letterSpacing: '-0.5px' }}>TEXNO MOTO BOZOR</div>
+              <div style={{ fontSize: '11px', color: '#555' }}>Rasmiy Xarid Kvitansiyasi</div>
+              <div style={{ fontSize: '10px', color: '#777', marginTop: '4px' }}>Check #: {selectedReceiptSale.id}</div>
+              <div style={{ fontSize: '10px', color: '#777' }}>Sana: {new Date(selectedReceiptSale.created_at).toLocaleString('uz-UZ')}</div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px', marginBottom: '16px' }}>
+              {getSaleItemsForSale(selectedReceiptSale.id).map(item => {
+                const prod = products.find(p => p.id === item.product_id);
+                return (
+                  <div key={item.id || item.product_id} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>{prod ? prod.name : 'Tovar'} x{item.quantity}</span>
+                    <span style={{ fontWeight: '700' }}>{formatPrimary((item.price || 0) * item.quantity)}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ borderTop: '1px dashed #000', paddingTop: '10px', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: '900' }}>
+                <span>JAMI:</span>
+                <span>{formatPrimary(selectedReceiptSale.total_amount)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#555', marginTop: '2px' }}>
+                <span>To'lov usuli:</span>
+                <span style={{ fontWeight: '700' }}>{selectedReceiptSale.payment_method || 'Naqd'}</span>
+              </div>
+            </div>
+
+            <div style={{ textAlign: 'center', fontSize: '11px', color: '#666', marginBottom: '16px' }}>
+              Xaridingiz uchun rahmat! 😊
+            </div>
+
+            <div className="no-print" style={{ display: 'flex', gap: '8px' }}>
+              <button 
+                onClick={() => window.print()}
+                style={{ flex: 1, padding: '10px', background: '#000', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: '700', cursor: 'pointer' }}
+              >
+                🖨️ Chop etish
+              </button>
+              <button 
+                onClick={() => setSelectedReceiptSale(null)}
+                style={{ padding: '10px 14px', background: '#eee', color: '#000', border: 'none', borderRadius: '6px', fontWeight: '700', cursor: 'pointer' }}
+              >
+                Yopish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

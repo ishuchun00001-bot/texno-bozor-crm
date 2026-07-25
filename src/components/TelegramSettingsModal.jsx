@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
+import { Send } from 'lucide-react';
 import { obfuscateSecret, deobfuscateSecret } from '../utils/security';
+import Button from './ui/Button';
+import Input from './ui/Input';
+import Modal from './ui/Modal';
 
 const DEFAULT_BOT_TOKEN = '8758536316:AAEYTolW74kyL_CB5HPvbxz1WPqC87qr-5U';
-const DEFAULT_CHAT_IDS = '658069248, 186055944'; // Salomov & Ilhom
+const DEFAULT_CHAT_IDS = '658069248, 186055944';
 
-// Helper function: Telegram bot xabari yuborish (Bir nechta admin chat ID lariga)
 export const sendTelegramNotification = async (messageText) => {
   try {
     const saved = localStorage.getItem('telegram_bot_settings');
@@ -26,7 +28,6 @@ export const sendTelegramNotification = async (messageText) => {
       return { success: false, reason: "Bot token yoki Admin Chat ID kiritilmagan" };
     }
 
-    // Bir nechta Chat ID larni vergul bilan ajratib olish
     const chatIds = chatIdString.split(/[\s,]+/).filter(Boolean);
     if (chatIds.length === 0) {
       return { success: false, reason: "Kamida bitta Chat ID kiriting" };
@@ -54,7 +55,7 @@ export const sendTelegramNotification = async (messageText) => {
     if (successCount > 0) {
       return { success: true, count: successCount, total: chatIds.length };
     } else {
-      const firstError = results[0]?.description || "Telegram API xatoligi (Botga /start bosilganini va Chat ID to'g'riligini tekshiring)";
+      const firstError = results[0]?.description || "Telegram API xatoligi";
       return { success: false, reason: firstError };
     }
   } catch (err) {
@@ -85,166 +86,115 @@ export default function TelegramSettingsModal({ isOpen, onClose }) {
       } catch (e) {
         console.error(e);
       }
-    } else {
-      setBotToken(DEFAULT_BOT_TOKEN);
-      setChatId(DEFAULT_CHAT_IDS);
     }
   }, [isOpen]);
 
-  if (!isOpen) return null;
-
   const handleSave = (e) => {
     e.preventDefault();
-    const rawToken = botToken.trim() || DEFAULT_BOT_TOKEN;
     const settings = {
-      botTokenEncrypted: obfuscateSecret(rawToken),
-      chatId: chatId.trim(),
+      botTokenEncrypted: obfuscateSecret(botToken),
+      chatId,
       notifySale,
       notifyLowStock
     };
     localStorage.setItem('telegram_bot_settings', JSON.stringify(settings));
-    setStatusMsg({ text: "Sozlamalar saqlandi! ✅", type: 'success' });
+    setStatusMsg({ text: "Telegram Bot sozlamalari muvaffaqiyatli saqlandi! ✅", type: 'success' });
     setTimeout(() => {
       onClose();
     }, 1200);
   };
 
-  const handleTest = async () => {
-    if (!chatId.trim()) {
-      setStatusMsg({ text: "Iltimos, kamida bitta admin Chat ID sini kiriting!", type: 'error' });
-      return;
-    }
-
+  const handleTestConnection = async () => {
     setIsTesting(true);
-    setStatusMsg({ text: "Test xabari adminlarga yuborilmoqda...", type: 'info' });
+    setStatusMsg({ text: "Telegram serverlariga ulanish tekshirilmoqda...", type: 'info' });
 
-    localStorage.setItem('telegram_bot_settings', JSON.stringify({
-      botToken: (botToken.trim() || DEFAULT_BOT_TOKEN),
-      chatId: chatId.trim(),
-      notifySale,
-      notifyLowStock
-    }));
+    const testMsg =
+      `🚀 <b>TEXNO MOTO BOZOR CRM — BILDIRISHNOMA TESTI</b>\n\n` +
+      `✅ Telegram Bot ulanishi muvaffaqiyatli o'rnatildi!\n` +
+      `⏰ Vaqt: ${new Date().toLocaleString('uz-UZ')}\n` +
+      `⚡ Endi barcha yangi sotuvlar va nasiya to'lovlari ushbu chatga avtomatik kelib tushadi.`;
 
-    const testMsg = `⚡ <b>TEXNO BOZOR CRM</b>\n\nTelegram Bot integratsiyasi muvaffaqiyatli ulindi! ✅\n👑 Adminlar: @salomov_2502 hamda @Ilhommurodov\n📅 Sana: ${new Date().toLocaleString('uz-UZ')}`;
     const res = await sendTelegramNotification(testMsg);
-
     setIsTesting(false);
+
     if (res.success) {
-      setStatusMsg({ text: `Test xabari Telegramga muvaffaqiyatli yuborildi! (${res.count} ta admimga yetib bordi) 🚀`, type: 'success' });
+      setStatusMsg({
+        text: `Test xabari ${res.count} ta admin chatiga muvaffaqiyatli yuborildi! 🎉`,
+        type: 'success'
+      });
     } else {
-      setStatusMsg({ text: `Xatolik: ${res.reason}`, type: 'error' });
+      setStatusMsg({
+        text: `Xatolik: ${res.reason}`,
+        type: 'error'
+      });
     }
   };
 
-  return createPortal(
-    <div className="modal-overlay">
-      <div className="modal-content" style={{ maxWidth: '540px' }}>
-        <div className="modal-header">
-          <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            ✈️ Telegram Bot Sozlamalari
-          </h3>
-          <button onClick={onClose} className="close-btn">&times;</button>
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Telegram Bot Integratsiyasi"
+      maxWidth="480px"
+    >
+      {statusMsg.text && (
+        <div style={{
+          padding: '10px 14px',
+          borderRadius: 'var(--radius-md)',
+          marginBottom: '16px',
+          fontSize: '12.5px',
+          background: statusMsg.type === 'success' ? 'rgba(16, 185, 129, 0.12)' : statusMsg.type === 'error' ? 'rgba(239, 68, 68, 0.12)' : 'var(--bg-secondary)',
+          color: statusMsg.type === 'success' ? 'var(--success)' : statusMsg.type === 'error' ? 'var(--danger)' : 'var(--brand-accent)',
+          border: `1px solid ${statusMsg.type === 'success' ? 'var(--success)' : statusMsg.type === 'error' ? 'var(--danger)' : 'var(--card-border)'}`
+        }}>
+          {statusMsg.text}
+        </div>
+      )}
+
+      <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <Input
+          label="Telegram Bot Token"
+          type="password"
+          value={botToken}
+          onChange={(e) => setBotToken(e.target.value)}
+          placeholder="Botfather tokenini kiriting"
+          required
+        />
+
+        <Input
+          label="Admin Chat ID lar (Vergul bilan ajrating)"
+          value={chatId}
+          onChange={(e) => setChatId(e.target.value)}
+          placeholder="658069248, 186055944"
+          required
+        />
+
+        <div style={{ padding: '12px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--card-border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', cursor: 'pointer' }}>
+            <input type="checkbox" checked={notifySale} onChange={(e) => setNotifySale(e.target.checked)} style={{ accentColor: 'var(--brand-accent)' }} />
+            Har bir yangi sotuv va nasiya haqida bildirishnoma
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', cursor: 'pointer' }}>
+            <input type="checkbox" checked={notifyLowStock} onChange={(e) => setNotifyLowStock(e.target.checked)} style={{ accentColor: 'var(--brand-accent)' }} />
+            Omborda tovar kam qolganda ogohlantirish
+          </label>
         </div>
 
-        <form onSubmit={handleSave}>
-          <div className="modal-body">
-            {/* Adminlar eslatmasi */}
-            <div style={{ background: 'rgba(0, 242, 254, 0.08)', borderLeft: '4px solid var(--neon-blue)', padding: '10px 14px', borderRadius: '6px', marginBottom: '16px', fontSize: '12px', color: 'var(--text-primary)' }}>
-              👑 <strong>Adminlar (@salomov_2502 & @Ilhommurodov):</strong><br />
-              1. Telegram botga kiring va kamida 1 marta <code>/start</code> bosib qo'ying.<br />
-              2. O'zingizning Chat ID laringizni (masalan: <code>@userinfobot</code> orqali bilish mumkin) vergul bilan ajratib kiriting (masalan: <code>12345678, 987654321</code>).
-            </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px' }}>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={handleTestConnection}
+            loading={isTesting}
+          >
+            <Send size={14} /> Test Xabarini Yuborish
+          </Button>
 
-            {statusMsg.text && (
-              <div style={{
-                padding: '10px 14px',
-                borderRadius: '6px',
-                marginBottom: '16px',
-                fontSize: '13px',
-                background: statusMsg.type === 'error' ? 'rgba(255, 56, 96, 0.12)' : statusMsg.type === 'success' ? 'rgba(0, 245, 212, 0.12)' : 'rgba(0, 187, 249, 0.12)',
-                borderLeft: `4px solid ${statusMsg.type === 'error' ? 'var(--neon-red)' : statusMsg.type === 'success' ? 'var(--neon-green)' : 'var(--neon-blue)'}`,
-                color: statusMsg.type === 'error' ? 'var(--neon-red)' : statusMsg.type === 'success' ? 'var(--neon-green)' : 'var(--neon-blue)'
-              }}>
-                {statusMsg.text}
-              </div>
-            )}
-
-            <div className="form-group">
-              <label>Bot Token *</label>
-              <input
-                type="text"
-                className="form-control"
-                value={botToken}
-                onChange={(e) => setBotToken(e.target.value)}
-                required
-              />
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
-                Telegram BotFather kaliti o'rnatilgan
-              </span>
-            </div>
-
-            <div className="form-group">
-              <label>Admin Chat ID (Bir nechta admin uchun vergul bilan ajrating) *</label>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Masalan: 12345678, 87654321 yoki -10012345678"
-                value={chatId}
-                onChange={(e) => setChatId(e.target.value)}
-                required
-              />
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
-                @salomov_2502 va @Ilhommurodov chat IDlarini vergul bilan ajratib yozing
-              </span>
-            </div>
-
-            <div className="form-group" style={{ marginTop: '16px' }}>
-              <label style={{ marginBottom: '10px', display: 'block' }}>Bildirishnoma Turlari:</label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px' }}>
-                  <input
-                    type="checkbox"
-                    checked={notifySale}
-                    onChange={(e) => setNotifySale(e.target.checked)}
-                  />
-                  <span>⚡ Har bir sotuv amalga oshganda chekni adminlarga yuborish</span>
-                </label>
-
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px' }}>
-                  <input
-                    type="checkbox"
-                    checked={notifyLowStock}
-                    onChange={(e) => setNotifyLowStock(e.target.checked)}
-                  />
-                  <span>⚠️ Ombor zahirasida tovar tugayotganda ogohlantirish</span>
-                </label>
-              </div>
-            </div>
-          </div>
-
-          <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
-            <button
-              type="button"
-              onClick={handleTest}
-              className="btn-secondary"
-              disabled={isTesting}
-              style={{ padding: '8px 14px', fontSize: '13px' }}
-            >
-              {isTesting ? "Yuborilmoqda..." : "🧪 Adminlarga Test Yuborish"}
-            </button>
-
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button type="button" onClick={onClose} className="btn-secondary" style={{ padding: '8px 14px', fontSize: '13px' }}>
-                Bekor qilish
-              </button>
-              <button type="submit" className="btn-primary" style={{ padding: '8px 18px', fontSize: '13px' }}>
-                💾 Saqlash
-              </button>
-            </div>
-          </div>
-        </form>
-      </div>
-    </div>,
-    document.body
+          <Button type="submit" variant="primary">
+            Sozlamalarni Saqlash
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }

@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
+import { ShieldCheck, Eye, EyeOff, KeyRound, AlertOctagon } from 'lucide-react';
 import { hashString, TARGET_HASH, createSecureSession } from '../utils/security';
+import Button from './ui/Button';
+import Card from './ui/Card';
 
 const MAX_ATTEMPTS = 5;
-const LOCKOUT_TIME = 15 * 60 * 1000; // 15 daqiqa (millisekundlarda)
+const LOCKOUT_TIME = 15 * 60 * 1000;
 
 export default function Login({ onLoginSuccess }) {
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [attempts, setAttempts] = useState(0);
   const [lockoutTime, setLockoutTime] = useState(null);
   const [remainingTime, setRemainingTime] = useState(0);
 
-  // Lockout holatini localStorage'dan yuklash
   useEffect(() => {
     const savedAttempts = parseInt(localStorage.getItem('login_attempts') || '0', 10);
     const savedLockoutUntil = parseInt(localStorage.getItem('lockout_until') || '0', 10);
@@ -21,7 +24,6 @@ export default function Login({ onLoginSuccess }) {
       setLockoutTime(savedLockoutUntil);
       setRemainingTime(Math.ceil((savedLockoutUntil - Date.now()) / 1000));
     } else if (savedLockoutUntil && savedLockoutUntil <= Date.now()) {
-      // Lockout muddati tugagan
       localStorage.removeItem('lockout_until');
       localStorage.setItem('login_attempts', '0');
       setAttempts(0);
@@ -31,14 +33,12 @@ export default function Login({ onLoginSuccess }) {
     }
   }, []);
 
-  // Bloklash taymeri (hisoblagich)
   useEffect(() => {
     if (!lockoutTime) return;
 
     const interval = setInterval(() => {
       const timeLeft = Math.ceil((lockoutTime - Date.now()) / 1000);
       if (timeLeft <= 0) {
-        // Blokdan chiqarish
         localStorage.removeItem('lockout_until');
         localStorage.setItem('login_attempts', '0');
         setAttempts(0);
@@ -64,7 +64,6 @@ export default function Login({ onLoginSuccess }) {
       const inputHash = await hashString(password);
 
       if (inputHash === TARGET_HASH) {
-        // Tizimga muvaffaqiyatli kirildi va kriptografik sessiya yaratildi
         localStorage.setItem('login_attempts', '0');
         localStorage.removeItem('lockout_until');
         await createSecureSession('admin');
@@ -97,63 +96,130 @@ export default function Login({ onLoginSuccess }) {
   };
 
   return (
-    <div className="login-wrapper">
-      {/* Orqa fondagi ambient yorug'liklar */}
-      <div className="ambient-glow glow-1"></div>
-      <div className="ambient-glow glow-2"></div>
-      <div className="ambient-glow glow-3"></div>
-
-      <div className="login-card glass-card">
-        <div className="login-logo">
-          <span>⚡ Texno Bozor</span>
-        </div>
-        <p className="login-subtitle">CRM Tizimiga kirish uchun parolni kiriting</p>
-
-        {lockoutTime ? (
-          <div className="lockout-alert">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{color: 'var(--neon-red)', marginBottom: '8px'}}><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-            <div>Xavfsizlik tizimi faollashdi!</div>
-            <div style={{fontSize: '13px', marginTop: '4px', opacity: 0.8}}>Siz juda ko'p marta xato parol kiritdingiz.</div>
-            <div className="lockout-timer">{formatTime(remainingTime)}</div>
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '20px',
+      background: 'var(--bg-base)',
+      position: 'relative'
+    }}>
+      <Card style={{
+        maxWidth: '420px',
+        width: '100%',
+        padding: '36px 32px',
+        borderRadius: 'var(--radius-xl)',
+        background: 'var(--card-bg)',
+        border: '1px solid var(--card-border)',
+        boxShadow: 'var(--shadow-lg)'
+      }}>
+        {/* Brand Header */}
+        <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+          <div style={{
+            width: '56px',
+            height: '56px',
+            borderRadius: '14px',
+            margin: '0 auto 14px auto',
+            overflow: 'hidden',
+            background: '#050810'
+          }}>
+            <img src="/logo.png" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
-        ) : (
-          <form onSubmit={handleLogin}>
-            <div className="form-group" style={{textAlign: 'left'}}>
-              <label htmlFor="admin-pass">Admin Paroli</label>
+          <h1 style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: '20px',
+            fontWeight: '800',
+            color: 'var(--text-primary)',
+            letterSpacing: '-0.3px'
+          }}>TEXNO MOTO BOZOR</h1>
+          <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+            Enterprise CRM & Smart Analytics Platform
+          </p>
+        </div>
+
+        {/* Lockout Warning or Error */}
+        {lockoutTime ? (
+          <div style={{
+            padding: '14px',
+            background: 'rgba(239, 68, 68, 0.12)',
+            border: '1px solid var(--danger)',
+            borderRadius: 'var(--radius-md)',
+            color: 'var(--danger)',
+            textAlign: 'center',
+            fontSize: '13px',
+            marginBottom: '20px'
+          }}>
+            <AlertOctagon size={24} style={{ marginBottom: '6px' }} />
+            <div style={{ fontWeight: '700' }}>Tizim Vaqtinchalik Bloklandi</div>
+            <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '4px' }}>
+              Qayta urinish imkoniyati: <strong style={{ color: '#fff' }}>{formatTime(remainingTime)}</strong>
+            </div>
+          </div>
+        ) : error ? (
+          <div style={{
+            padding: '10px 14px',
+            background: 'rgba(239, 68, 68, 0.12)',
+            border: '1px solid var(--danger)',
+            borderRadius: 'var(--radius-md)',
+            color: 'var(--danger)',
+            fontSize: '12.5px',
+            marginBottom: '20px'
+          }}>
+            {error}
+          </div>
+        ) : null}
+
+        {/* Form */}
+        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label">Tizimga Kirish Paroli</label>
+            <div style={{ position: 'relative' }}>
+              <KeyRound size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
               <input
-                id="admin-pass"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 className="form-control"
                 placeholder="Parolni kiriting..."
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                autoFocus
+                disabled={Boolean(lockoutTime)}
                 required
+                autoFocus
+                style={{ paddingLeft: '38px', paddingRight: '40px' }}
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer'
+                }}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
             </div>
+          </div>
 
-            {error && (
-              <div style={{
-                color: 'var(--neon-red)',
-                fontSize: '13px',
-                marginBottom: '16px',
-                textAlign: 'left',
-                padding: '10px',
-                background: 'rgba(255,56,96,0.08)',
-                borderLeft: '3px solid var(--neon-red)',
-                borderRadius: '4px'
-              }}>
-                {error}
-              </div>
-            )}
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={Boolean(lockoutTime) || !password}
+            style={{ width: '100%', padding: '10px', justifyContent: 'center' }}
+          >
+            <ShieldCheck size={16} /> Tizimga Kirish
+          </Button>
+        </form>
 
-            <button type="submit" className="btn-primary" style={{width: '100%', justifyContent: 'center', marginTop: '8px'}}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-              Tizimga kirish
-            </button>
-          </form>
-        )}
-      </div>
+        <div style={{ textAlign: 'center', marginTop: '20px', fontSize: '11px', color: 'var(--text-muted)' }}>
+          Kriptografik 256-bit xavfsiz sessiya bilan himoyalangan 🔒
+        </div>
+      </Card>
     </div>
   );
 }
