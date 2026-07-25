@@ -320,10 +320,12 @@ export default function SalesHistory({
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                               {items.map(item => {
                                 const prod = products.find(p => p.id === item.product_id);
+                                const itemPrice = item.selling_price || item.price || item.unit_price || (prod ? prod.selling_price : 0);
+                                const qty = item.quantity || 1;
                                 return (
                                   <div key={item.id || item.product_id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: 'var(--text-secondary)', padding: '4px 0', borderBottom: '1px dashed var(--card-border)' }}>
-                                    <span>• {prod ? prod.name : 'Tovar ID: ' + item.product_id} x {item.quantity} dona</span>
-                                    <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{formatPrimary((item.price || 0) * (item.quantity || 1))}</span>
+                                    <span>• {prod ? prod.name : 'Tovar ID: ' + item.product_id} x {qty} dona</span>
+                                    <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{formatPrimary(itemPrice * qty)}</span>
                                   </div>
                                 );
                               })}
@@ -354,10 +356,12 @@ export default function SalesHistory({
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px', marginBottom: '16px' }}>
               {getSaleItemsForSale(selectedReceiptSale.id).map(item => {
                 const prod = products.find(p => p.id === item.product_id);
+                const itemPrice = item.selling_price || item.price || item.unit_price || (prod ? prod.selling_price : 0);
+                const qty = item.quantity || 1;
                 return (
                   <div key={item.id || item.product_id} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>{prod ? prod.name : 'Tovar'} x{item.quantity}</span>
-                    <span style={{ fontWeight: '700' }}>{formatPrimary((item.price || 0) * item.quantity)}</span>
+                    <span>{prod ? prod.name : 'Tovar'} x{qty}</span>
+                    <span style={{ fontWeight: '700' }}>{formatPrimary(itemPrice * qty)}</span>
                   </div>
                 );
               })}
