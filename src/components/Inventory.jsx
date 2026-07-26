@@ -285,26 +285,35 @@ export default function Inventory({
           return;
         }
 
+        const findVal = (rowObj, keys) => {
+          const rKeys = Object.keys(rowObj);
+          for (const k of keys) {
+            const foundKey = rKeys.find(rk => rk.trim().toLowerCase().includes(k.toLowerCase()));
+            if (foundKey && rowObj[foundKey] !== undefined) return rowObj[foundKey];
+          }
+          return null;
+        };
+
         const importedItems = rawData.map(row => {
-          const nameVal = row["Tovar Nomi"] || row["Name"] || row["Mahsulot"] || "Noma'lum tovar";
-          const brandVal = row["Brend"] || row["Brand"] || nameVal.split(' ')[0] || "Brendsiz";
-          const modelVal = row["Model Nomi"] || row["Model"] || "";
-          const skuVal = row["SKU / Shtrix Kod"] || row["SKU"] || row["Kod"] || `SKU-${Math.random().toString(36).substring(7).toUpperCase()}`;
-          const categoryVal = row["Kategoriya"] || row["Category"] || "Maishiy texnika";
-          const stockVal = parseInt(row["Zahira Soni (Dona)"] || row["Zahira Soni"] || row["Stock"] || 0, 10);
-          const costVal = parseFloat(row["Kirim Narxi ($)"] || row["Kirim Narxi"] || row["Cost Price"] || 0);
-          const sellVal = parseFloat(row["Sotish Narxi ($)"] || row["Sotish Narxi"] || row["Selling Price"] || 0);
+          const nameVal = findVal(row, ["tovar", "name", "mahsulot", "nomi"]) || "Noma'lum tovar";
+          const brandVal = findVal(row, ["brend", "brand"]) || String(nameVal).split(' ')[0] || "Brendsiz";
+          const modelVal = findVal(row, ["model"]) || "";
+          const skuVal = findVal(row, ["sku", "kod", "shtrix"]) || `SKU-${Math.random().toString(36).substring(7).toUpperCase()}`;
+          const categoryVal = findVal(row, ["kategoriya", "category"]) || "Maishiy texnika";
+          const stockVal = parseInt(findVal(row, ["zahira", "stock", "ombor", "soni", "dona"]) || 0, 10);
+          const costVal = parseFloat(findVal(row, ["kirim", "tannarx", "cost"]) || 0);
+          const sellVal = parseFloat(findVal(row, ["sotish", "narx", "selling"]) || 0);
 
           return {
-            name: nameVal,
-            brand: brandVal,
-            model: modelVal,
-            sku: skuVal,
-            category: categoryVal,
+            name: String(nameVal),
+            brand: String(brandVal),
+            model: String(modelVal),
+            sku: String(skuVal),
+            category: String(categoryVal),
             store_type: currentStore === 'moto' ? 'moto' : 'texno',
-            stock: stockVal,
-            cost_price: costVal,
-            selling_price: sellVal,
+            stock: isNaN(stockVal) ? 0 : stockVal,
+            cost_price: isNaN(costVal) ? 0 : costVal,
+            selling_price: isNaN(sellVal) ? costVal : sellVal,
             image_url: techIcons.phone
           };
         });

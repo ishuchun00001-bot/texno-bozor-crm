@@ -71,6 +71,7 @@ export default function Expenses({
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [recurrence, setRecurrence] = useState('once');
   const [notes, setNotes] = useState('');
+  const [storeType, setStoreType] = useState(currentStore === 'moto' ? 'moto' : 'texno');
   const [createdBy, setCreatedBy] = useState('Admin');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -81,6 +82,7 @@ export default function Expenses({
     setDate(new Date().toISOString().slice(0, 10));
     setRecurrence('once');
     setNotes('');
+    setStoreType(currentStore === 'moto' ? 'moto' : 'texno');
     setCreatedBy('Admin');
     setIsModalOpen(true);
   };
@@ -119,6 +121,7 @@ export default function Expenses({
       amount: amountUsd,
       date,
       recurrence,
+      store_type: storeType,
       notes: notes || '',
       created_by: createdBy || 'Admin',
       created_at: new Date(date).toISOString()
@@ -189,6 +192,7 @@ export default function Expenses({
   };
 
   const filteredExpenses = expenses.filter(exp => {
+    const matchesStore = currentStore === 'all' || (exp.store_type || 'texno') === currentStore;
     const matchesCategory = selectedCategory === 'all' || exp.category === selectedCategory;
     const matchesRecurrence = selectedRecurrence === 'all' || exp.recurrence === selectedRecurrence;
     const matchesSearch = 
@@ -196,7 +200,7 @@ export default function Expenses({
       (exp.notes && exp.notes.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (exp.created_by && exp.created_by.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    return matchesCategory && matchesRecurrence && matchesSearch;
+    return matchesStore && matchesCategory && matchesRecurrence && matchesSearch;
   });
 
   const totalExpenseUsd = filteredExpenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);

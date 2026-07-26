@@ -205,7 +205,8 @@ export default function Debtors({
     if (!selectedDebtor || !payAmount) return;
 
     const rate = rates[currency] || 1;
-    const payUsd = (parseFloat(payAmount) || 0) / rate;
+    const payUsdRaw = (parseFloat(payAmount) || 0) / rate;
+    const payUsd = Math.min(selectedDebtor.remaining_amount, payUsdRaw);
     const newRemaining = Math.max(0, selectedDebtor.remaining_amount - payUsd);
     const newStatus = newRemaining <= 0 ? 'completed' : 'active';
 
@@ -294,9 +295,18 @@ export default function Debtors({
     XLSX.writeFile(wb, `Nasiyadorlar_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
-  const filteredDebtors = debtors.filter(d => {
+  const getDebtorStatus = (d) => {
+    if (!d || d.remaining_amount <= 0) return 'completed';
+    const todayDate = new Date().getDate();
+    if (d.due_day && todayDate > d.due_day) {
+      return 'overdue';
+    }
+    return d.status || 'active';
+  };
+
+  const filteredDebtors = debtors.map(d => ({ ...d, computedStatus: getDebtorStatus(d) })).filter(d => {
     const matchesStore = currentStore === 'all' || (d.store_type || 'texno') === currentStore;
-    const matchesStatus = filterStatus === 'all' || d.status === filterStatus;
+    const matchesStatus = filterStatus === 'all' || d.computedStatus === filterStatus;
     const matchesQuery = 
       (d.client_name && d.client_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (d.phone && d.phone.includes(searchQuery)) ||

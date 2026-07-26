@@ -36,8 +36,10 @@ export default function Topbar({
   const formatBreadcrumb = (tab) => {
     switch (tab) {
       case 'dashboard': return 'Asosiy Panel';
+      case 'sotuv': return 'Sotuv';
       case 'inventory': return 'Tovarlar Ombori';
       case 'sales': return 'Sotuvlar Tarixi';
+      case 'expenses': return 'Harajatlar';
       case 'calculator': return 'Kredit Kalkulyator';
       case 'debtors': return 'Nasiya va Qarzlar';
       case 'analytics': return 'Tahlillar';

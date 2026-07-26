@@ -301,6 +301,18 @@ export default function SaleModule({
           const tgSettings = JSON.parse(savedTg);
           if (tgSettings.notifySale !== false && tgSettings.botToken && tgSettings.chatId) {
             const itemsList = cart.map(i => `• <b>${i.name}</b> x${i.quantity} dona (${formatPrimary(((i.custom_selling_price || 0) - (i.discount || 0)) / rate * i.quantity)})`).join('\n');
+            let paymentBreakdownText = `💳 <b>To'lov Turi:</b> ${SALE_PAYMENT_METHODS.find(m => m.id === paymentType)?.label || paymentType}\n`;
+            if (paymentType === 'mixed') {
+              const parts = [];
+              if (payments.cash > 0) parts.push(`• Naqd: ${formatCurrency(payments.cash / rate, currency, rates)}`);
+              if (payments.card > 0) parts.push(`• Karta (2%): ${formatCurrency(payments.card / rate, currency, rates)}`);
+              if (payments.nasiya > 0) parts.push(`• Nasiya (5%): ${formatCurrency(payments.nasiya / rate, currency, rates)}`);
+              if (payments.kredit > 0) parts.push(`• Kredit: ${formatCurrency(payments.kredit / rate, currency, rates)}`);
+              if (payments.uzum > 0) parts.push(`• Uzum: ${formatCurrency(payments.uzum / rate, currency, rates)}`);
+              if (payments.alif > 0) parts.push(`• Alif: ${formatCurrency(payments.alif / rate, currency, rates)}`);
+              paymentBreakdownText += parts.join('\n') + '\n';
+            }
+
             const tgMsg =
               `🛍️ <b>YANGI ERP SOTUV AMALGA OSHIRILDI!</b>\n\n` +
               `👤 Mijoz: <b>${customerName || 'Mijoz ko\'rsatilmadi'}</b> (${customerPhone || '—'})\n` +
@@ -308,6 +320,7 @@ export default function SaleModule({
               `📅 Sana: ${new Date().toLocaleString('uz-UZ')}\n\n` +
               `🛒 <b>Buyurtma Tarkibi:</b>\n${itemsList}\n\n` +
               `------------------------------\n` +
+              paymentBreakdownText +
               `💵 <b>Jami Summa:</b> ${formatPrimary(totals.subtotalUsd)}\n` +
               `💳 <b>Karta Komissiyasi (2%):</b> -${formatPrimary(totals.cardCommUsd)}\n` +
               `⚠️ <b>Nasiya Xarajati (5%):</b> -${formatPrimary(totals.nasiyaFeeUsd)}\n` +
