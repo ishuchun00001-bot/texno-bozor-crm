@@ -93,7 +93,15 @@ export default function Debtors({
         if (error) throw error;
         setDebtors(data || []);
       } else {
-        let local = JSON.parse(localStorage.getItem('local_debtors') || '[]');
+        let local = [];
+        try {
+          const parsed = JSON.parse(localStorage.getItem('local_debtors') || '[]');
+          local = Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+          console.error(e);
+          local = [];
+        }
+
         if (local.length === 0 && !localStorage.getItem('local_debtors_seeded')) {
           local = mockDebtors;
           localStorage.setItem('local_debtors', JSON.stringify(local));
