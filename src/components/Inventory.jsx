@@ -534,12 +534,6 @@ export default function Inventory({
         title={editingProduct ? 'Mahsulotni Tahrirlash' : 'Yangi Tovar Qo\'shish'}
         maxWidth="540px"
       >
-        {errorMsg && (
-          <div style={{ padding: '10px 14px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid var(--danger)', color: 'var(--danger)', borderRadius: 'var(--radius-md)', marginBottom: '16px', fontSize: '12.5px' }}>
-            {errorMsg}
-          </div>
-        )}
-
         <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <Input 
             label="Tovar Nomi *" 
