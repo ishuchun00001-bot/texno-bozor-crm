@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import { formatCurrency, DEFAULT_RATES } from '../utils/currency';
+import { getCommissionRates } from '../constants';
 import { sendTelegramNotification } from './TelegramSettingsModal';
 import { useToast } from './Toast';
 import Button from './ui/Button';
@@ -155,12 +156,13 @@ export default function SaleModule({
 
     const remainingDisplay = subtotalDisplay - paidDisplay;
 
-    // Komissiyalar
+    // Dynamic Settings Komissiyalari
+    const { cardRate, nasiyaRate } = getCommissionRates();
     const cardPart = paymentType === 'card' ? subtotalDisplay : (paymentType === 'mixed' ? (payments.card || 0) : 0);
     const nasiyaPart = paymentType === 'nasiya' ? subtotalDisplay : (paymentType === 'mixed' ? (payments.nasiya || 0) : 0);
 
-    const cardCommDisplay = Math.round(cardPart * 0.02);
-    const nasiyaFeeDisplay = Math.round(nasiyaPart * 0.05);
+    const cardCommDisplay = Math.round(cardPart * cardRate);
+    const nasiyaFeeDisplay = Math.round(nasiyaPart * nasiyaRate);
 
     const cardCommUsd = cardCommDisplay / rate;
     const nasiyaFeeUsd = nasiyaFeeDisplay / rate;

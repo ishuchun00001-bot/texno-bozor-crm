@@ -11,6 +11,22 @@ export const PAYMENT_COMMISSION_RATES = {
   NASIYA: 0.05 // 5% Nasiya service fee
 };
 
+export function getCommissionRates() {
+  const saved = localStorage.getItem('commission_settings');
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      return {
+        cardRate: parseFloat(parsed.cardRate) || 0.02,
+        nasiyaRate: parseFloat(parsed.nasiyaRate) || 0.05
+      };
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  return { cardRate: 0.02, nasiyaRate: 0.05 };
+}
+
 export const DEFAULT_EXPENSE_CATEGORIES = [
   'Arenda',
   'Elektr',
