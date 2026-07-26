@@ -31,13 +31,21 @@ export const DEFAULT_EXPENSE_CATEGORIES = [
   'Arenda',
   'Elektr',
   'Suv',
+  'Gaz',
   'Internet',
   'Soliq',
   'Ish haqi',
   'Reklama',
   'Transport',
   'Ta\'mirlash',
+  'Ofis',
   'Boshqa'
+];
+
+export const EXPENSE_STATUSES = [
+  { id: 'paid', label: 'To\'langan', color: 'var(--success)' },
+  { id: 'pending', label: 'Kutilmoqda', color: 'var(--warning)' },
+  { id: 'cancelled', label: 'Bekor qilingan', color: 'var(--danger)' }
 ];
 
 export const RECURRENCE_TYPES = [

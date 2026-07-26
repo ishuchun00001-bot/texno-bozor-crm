@@ -21,8 +21,7 @@ import {
   AlertTriangle,
   Wallet,
   Percent,
-  CreditCard,
-  Building2
+  CreditCard
 } from 'lucide-react';
 import { formatCurrency, DEFAULT_RATES } from '../utils/currency';
 import Card from './ui/Card';
@@ -53,7 +52,6 @@ export default function Dashboard({
 }) {
   const [filter, setFilter] = useState('monthly');
   const [filteredSales, setFilteredSales] = useState([]);
-  const [filteredExpenses, setFilteredExpenses] = useState([]);
   
   const [metrics, setMetrics] = useState({
     todaySalesCount: 0,

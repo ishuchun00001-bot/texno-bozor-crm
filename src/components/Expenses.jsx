@@ -72,6 +72,7 @@ export default function Expenses({
   const [recurrence, setRecurrence] = useState('once');
   const [notes, setNotes] = useState('');
   const [storeType, setStoreType] = useState(currentStore === 'moto' ? 'moto' : 'texno');
+  const [status, setStatus] = useState('paid');
   const [createdBy, setCreatedBy] = useState('Admin');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -81,6 +82,7 @@ export default function Expenses({
     setAmount(0);
     setDate(new Date().toISOString().slice(0, 10));
     setRecurrence('once');
+    setStatus('paid');
     setNotes('');
     setStoreType(currentStore === 'moto' ? 'moto' : 'texno');
     setCreatedBy('Admin');
@@ -121,6 +123,7 @@ export default function Expenses({
       amount: amountUsd,
       date,
       recurrence,
+      status: status || 'paid',
       store_type: storeType,
       notes: notes || '',
       created_by: createdBy || 'Admin',
