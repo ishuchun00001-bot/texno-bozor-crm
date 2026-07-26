@@ -9,14 +9,15 @@ import Button from './ui/Button';
 import Card from './ui/Card';
 import Input from './ui/Input';
 
-export default function CreditCalculator({ products = [], rates = DEFAULT_RATES }) {
-  const [calcCurrency, setCalcCurrency] = useState('USD');
+export default function CreditCalculator({ products = [], rates = DEFAULT_RATES, currency = 'USD' }) {
+  const [calcCurrency, setCalcCurrency] = useState(currency);
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
-  // Aniq raqamli kiritish inputlari (No Sliders!)
-  const [productPrice, setProductPrice] = useState(3500000);
-  const [downPayment, setDownPayment] = useState(500000);
+  const initialRate = rates[currency] || 1;
+  // Aniq raqamli kiritish inputlari (Default $500 tovar narxi, $50 boshlang'ich)
+  const [productPrice, setProductPrice] = useState(Math.round(500 * initialRate));
+  const [downPayment, setDownPayment] = useState(Math.round(50 * initialRate));
   const [duration, setDuration] = useState(12);
   const [annualRate, setAnnualRate] = useState(26);
   const [calcType, setCalcType] = useState('annuity'); // 'annuity' yoki 'differential'
@@ -25,6 +26,19 @@ export default function CreditCalculator({ products = [], rates = DEFAULT_RATES 
   const [totalInterest, setTotalInterest] = useState(0);
   const [totalPayable, setTotalPayable] = useState(0);
   const [schedule, setSchedule] = useState([]);
+
+  useEffect(() => {
+    if (currency && currency !== calcCurrency) {
+      const oldRate = rates[calcCurrency] || 1;
+      const newRate = rates[currency] || 1;
+      const usdPrice = productPrice / oldRate;
+      const usdDown = downPayment / oldRate;
+
+      setProductPrice(Math.round(usdPrice * newRate));
+      setDownPayment(Math.round(usdDown * newRate));
+      setCalcCurrency(currency);
+    }
+  }, [currency]);
 
   const matchingProducts = searchTerm.trim() ? products.filter(p =>
     (p.name && p.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -51,7 +65,7 @@ export default function CreditCalculator({ products = [], rates = DEFAULT_RATES 
     setSearchTerm(prod.name);
     setIsSearchOpen(false);
 
-    const price = Math.round(prod.selling_price * (rates[calcCurrency] || 1));
+    const price = Math.round((parseFloat(prod.selling_price) || parseFloat(prod.cost_price) || 0) * (rates[calcCurrency] || 1));
     setProductPrice(price);
     setDownPayment(Math.round(price * 0.15)); // 15% default boshlang'ich
   };
