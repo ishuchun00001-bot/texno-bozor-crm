@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
+import SaleModule from './components/SaleModule';
 import Inventory from './components/Inventory';
 import SalesHistory from './components/SalesHistory';
 import Debtors from './components/Debtors';
@@ -273,6 +274,16 @@ function App() {
             saleItems={saleItems}
             expenses={expenses}
             loading={loading}
+            rates={rates}
+            currency={currency}
+            currentStore={currentStore}
+          />
+        );
+      case 'sotuv':
+        return (
+          <SaleModule
+            products={filteredProducts}
+            onRefresh={fetchData}
             rates={rates}
             currency={currency}
             currentStore={currentStore}

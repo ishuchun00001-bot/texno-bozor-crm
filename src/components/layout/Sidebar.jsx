@@ -1,6 +1,7 @@
 import React from 'react';
 import { 
   LayoutDashboard, 
+  ShoppingCart,
   Package, 
   Receipt, 
   Calculator, 
@@ -21,6 +22,7 @@ export default function Sidebar({
 }) {
   const menuItems = [
     { id: 'dashboard', label: 'Asosiy Panel', icon: LayoutDashboard },
+    { id: 'sotuv', label: 'Sotuv', icon: ShoppingCart },
     { id: 'inventory', label: 'Tovarlar Ombori', icon: Package },
     { id: 'sales', label: 'Sotuvlar Tarixi', icon: Receipt },
     { id: 'expenses', label: 'Harajatlar', icon: Wallet },
