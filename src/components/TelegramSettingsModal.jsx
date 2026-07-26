@@ -64,6 +64,84 @@ export const sendTelegramNotification = async (messageText) => {
   }
 };
 
+export const sendDailySummaryReport = async (sales = [], products = [], expenses = [], rates = {}, currency = 'USD') => {
+  try {
+    const today = new Date();
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
+    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+
+    const rate = rates[currency] || 1;
+    const formatMoney = (valUsd) => {
+      const numUsd = parseFloat(valUsd) || 0;
+      if (currency === 'UZS') {
+        const uzs = Math.round(numUsd * rate);
+        return `${uzs.toLocaleString()} SO'M`;
+      }
+      return `$${numUsd.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+    };
+
+    // 1. Bugungi Sotuvlar
+    const todaySales = sales.filter(s => {
+      if (!s || !s.created_at) return false;
+      const d = new Date(s.created_at);
+      return d >= startOfDay && d <= endOfDay;
+    });
+
+    const totalSalesCount = todaySales.length;
+    const totalSalesUsd = todaySales.reduce((sum, s) => sum + (parseFloat(s.total_amount) || 0), 0);
+    const netRevenueUsd = todaySales.reduce((sum, s) => sum + (parseFloat(s.net_amount) || parseFloat(s.total_amount) || 0), 0);
+    const salesProfitUsd = todaySales.reduce((sum, s) => sum + (parseFloat(s.profit) || 0), 0);
+
+    // 2. Bugungi Harajatlar
+    const todayExpenses = expenses.filter(e => {
+      if (!e || !e.created_at) return false;
+      const d = new Date(e.created_at);
+      return d >= startOfDay && d <= endOfDay;
+    });
+
+    const totalExpensesUsd = todayExpenses.reduce((sum, e) => sum + (parseFloat(e.amount_usd) || parseFloat(e.amount) || 0), 0);
+    const netProfitUsd = salesProfitUsd - totalExpensesUsd;
+
+    // 3. Ombor Qoldig'i
+    const totalProductsCount = products.length;
+    const totalInventoryStock = products.reduce((sum, p) => sum + (parseInt(p.stock) || 0), 0);
+    const totalInventoryCostUsd = products.reduce((sum, p) => sum + ((parseFloat(p.cost_price) || 0) * (parseInt(p.stock) || 0)), 0);
+
+    // 4. Kam Qolgan Tovarlar (stock <= 3)
+    const lowStockItems = products.filter(p => (parseInt(p.stock) || 0) <= 3);
+    let lowStockText = '• Hamma tovar yetarli miqdorda ✅';
+    if (lowStockItems.length > 0) {
+      lowStockText = lowStockItems.map(p => `• <b>${p.name}</b> — ⚠️ ${p.stock} dona`).join('\n');
+    }
+
+    const dateStr = today.toLocaleDateString('uz-UZ', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    const reportMsg =
+      `📊 <b>TEXNO BOZOR ERP — KUNLIK SAVDO VA OMBOR HISOBOTI</b>\n` +
+      `📅 <b>Sana:</b> ${dateStr} (⏰ 23:00)\n\n` +
+      `💵 <b>BUGUNGI SAVDO VA SOF FOYDA:</b>\n` +
+      `• 🛍️ <b>Jami sotuvlar soni:</b> ${totalSalesCount} ta\n` +
+      `• 💰 <b>Jami savdo hajmi:</b> ${formatMoney(totalSalesUsd)}\n` +
+      `• 🏢 <b>Sof tushum (bank/xizmat chegirilib):</b> ${formatMoney(netRevenueUsd)}\n` +
+      `• 📈 <b>Sotuvdan foyda:</b> +${formatMoney(salesProfitUsd)}\n` +
+      `• 💸 <b>Bugungi harajatlar:</b> -${formatMoney(totalExpensesUsd)}\n` +
+      `• 💎 <b>KUNLIK SOF FOYDA:</b> <b>${netProfitUsd >= 0 ? '+' : ''}${formatMoney(netProfitUsd)}</b>\n\n` +
+      `📦 <b>OMBOR QOLDIG'I HISOBOTI:</b>\n` +
+      `• 📦 <b>Ombordagi tovar turlari:</b> ${totalProductsCount} xil\n` +
+      `• 🔢 <b>Jami tovarlar soni:</b> ${totalInventoryStock} dona\n` +
+      `• 💰 <b>Ombordagi tovarlar umumiy tannarxi:</b> ${formatMoney(totalInventoryCostUsd)}\n\n` +
+      `⚠️ <b>KAM QOLGAN TOVARLAR (0 - 3 dona):</b>\n` +
+      `${lowStockText}\n\n` +
+      `------------------------------\n` +
+      `🤖 <i>Texno & Moto Bozor ERP tizimi tomonidan avtomatik yuborildi.</i>`;
+
+    return await sendTelegramNotification(reportMsg);
+  } catch (err) {
+    console.error("Daily Telegram report error:", err);
+    return { success: false, reason: err.message };
+  }
+};
+
 export default function TelegramSettingsModal({ isOpen, onClose }) {
   const [botToken, setBotToken] = useState(DEFAULT_BOT_TOKEN);
   const [chatId, setChatId] = useState(DEFAULT_CHAT_IDS);

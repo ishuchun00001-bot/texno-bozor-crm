@@ -8,7 +8,7 @@ import Debtors from './components/Debtors';
 import Expenses from './components/Expenses';
 import CreditCalculator from './components/CreditCalculator';
 import Analytics from './components/Analytics';
-import TelegramSettingsModal from './components/TelegramSettingsModal';
+import TelegramSettingsModal, { sendDailySummaryReport } from './components/TelegramSettingsModal';
 import FloatingDock from './components/FloatingDock';
 import Topbar from './components/layout/Topbar';
 import Sidebar from './components/layout/Sidebar';
@@ -189,6 +189,35 @@ function App() {
 
     loadRates();
   }, []);
+
+  // ⏰ Har kuni soat 23:00 da Telegramga avtomatik kunlik savdo va ombor hisobotini yuborish
+  useEffect(() => {
+    const checkSchedule = () => {
+      const now = new Date();
+      const hours = now.getHours();
+      const minutes = now.getMinutes();
+
+      // Soat 23:00 bo'lganda (23:00 - 23:01 oralig'i)
+      if (hours === 23 && minutes === 0) {
+        const todayDateStr = now.toISOString().split('T')[0];
+        const lastSentDate = localStorage.getItem('last_daily_tg_report_date');
+
+        if (lastSentDate !== todayDateStr) {
+          localStorage.setItem('last_daily_tg_report_date', todayDateStr);
+          sendDailySummaryReport(sales, products, expenses, rates, currency)
+            .then(res => {
+              if (res && res.success) {
+                console.log("⏰ 23:00 Kunlik Telegram hisoboti muvaffaqiyatli yuborildi!");
+              }
+            })
+            .catch(err => console.error("23:00 Telegram scheduler error:", err));
+        }
+      }
+    };
+
+    const intervalId = setInterval(checkSchedule, 25000); // Har 25 soniyada tekshiradi
+    return () => clearInterval(intervalId);
+  }, [sales, products, expenses, rates, currency]);
 
   const handleLoginSuccess = () => {
     setIsAuthenticated(true);
