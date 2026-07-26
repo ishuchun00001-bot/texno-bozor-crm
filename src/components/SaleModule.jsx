@@ -74,8 +74,7 @@ export default function SaleModule({
     }
 
     const existingItem = cart.find(item => item.id === product.id);
-    const rate = rates[currency] || 1;
-    const initialPrice = Math.round((product.selling_price || product.cost_price || 0) * rate);
+    const baseSellingPriceUsd = parseFloat(product.selling_price) || parseFloat(product.cost_price) || 0;
 
     if (existingItem) {
       if (existingItem.quantity >= product.stock) {
@@ -89,8 +88,8 @@ export default function SaleModule({
       setCart([...cart, {
         ...product,
         quantity: 1,
-        custom_selling_price: initialPrice,
-        discount: 0
+        selling_price_usd: baseSellingPriceUsd,
+        discount_display: 0
       }]);
     }
   };
@@ -110,19 +109,30 @@ export default function SaleModule({
     }
   };
 
-  const updateItemPrice = (id, priceVal) => {
-    const val = Math.max(0, parseFloat(priceVal) || 0);
-    setCart(cart.map(item => item.id === id ? { ...item, custom_selling_price: val } : item));
+  const updateItemPrice = (id, displayVal) => {
+    const rate = rates[currency] || 1;
+    const valInDisplayCurrency = Math.max(0, parseFloat(displayVal) || 0);
+    const usdVal = valInDisplayCurrency / rate;
+    setCart(cart.map(item => item.id === id ? { ...item, selling_price_usd: usdVal } : item));
   };
 
-  const updateItemDiscount = (id, discountVal) => {
-    const val = Math.max(0, parseFloat(discountVal) || 0);
-    setCart(cart.map(item => item.id === id ? { ...item, discount: val } : item));
+  const updateItemDiscount = (id, displayVal) => {
+    const valInDisplayCurrency = Math.max(0, parseFloat(displayVal) || 0);
+    setCart(cart.map(item => item.id === id ? { ...item, discount_display: valInDisplayCurrency } : item));
   };
 
   const clearCart = () => {
     setCart([]);
     setPayments({ cash: 0, card: 0, nasiya: 0, kredit: 0, uzum: 0, alif: 0 });
+  };
+
+  const handleSelectPaymentType = (typeId) => {
+    setPaymentType(typeId);
+    if (typeId === 'mixed') {
+      const rate = rates[currency] || 1;
+      const subtotalDisplay = Math.round(getOrderTotals().subtotalUsd * rate);
+      setPayments({ cash: subtotalDisplay, card: 0, nasiya: 0, kredit: 0, uzum: 0, alif: 0 });
+    }
   };
 
   // Buyurtma hisob-kitoblari
@@ -133,8 +143,8 @@ export default function SaleModule({
     let totalDiscountUsd = 0;
 
     cart.forEach(item => {
-      const priceUsd = (parseFloat(item.custom_selling_price) || 0) / rate;
-      const discountUsd = (parseFloat(item.discount) || 0) / rate;
+      const priceUsd = parseFloat(item.selling_price_usd) || 0;
+      const discountUsd = (parseFloat(item.discount_display) || 0) / rate;
       const costUsd = parseFloat(item.cost_price) || 0;
 
       const netPriceUsd = Math.max(0, priceUsd - discountUsd);
@@ -239,7 +249,7 @@ export default function SaleModule({
           product_id: item.id,
           quantity: item.quantity,
           cost_price: item.cost_price,
-          selling_price: ((parseFloat(item.custom_selling_price) || 0) - (parseFloat(item.discount) || 0)) / rate
+          selling_price: (parseFloat(item.selling_price_usd) || 0) - ((parseFloat(item.discount_display) || 0) / rate)
         }));
 
         const { error: itemsErr } = await supabase.from('sale_items').insert(saleItemsData);
@@ -274,7 +284,7 @@ export default function SaleModule({
             product_id: item.id,
             quantity: item.quantity,
             cost_price: item.cost_price,
-            selling_price: ((parseFloat(item.custom_selling_price) || 0) - (parseFloat(item.discount) || 0)) / rate,
+            selling_price: (parseFloat(item.selling_price_usd) || 0) - ((parseFloat(item.discount_display) || 0) / rate),
             created_at: nowIso
           });
 
@@ -482,7 +492,7 @@ export default function SaleModule({
                           <input
                             type="number"
                             className="form-control"
-                            value={item.custom_selling_price}
+                            value={Math.round((item.selling_price_usd || 0) * (rates[currency] || 1))}
                             onChange={(e) => updateItemPrice(item.id, e.target.value)}
                             style={{ padding: '3px 4px', fontSize: '11px', height: '26px' }}
                           />
@@ -493,7 +503,7 @@ export default function SaleModule({
                           <input
                             type="number"
                             className="form-control"
-                            value={item.discount || 0}
+                            value={item.discount_display || 0}
                             onChange={(e) => updateItemDiscount(item.id, e.target.value)}
                             style={{ padding: '3px 4px', fontSize: '11px', height: '26px' }}
                           />
@@ -520,7 +530,7 @@ export default function SaleModule({
                       <button
                         key={m.id}
                         type="button"
-                        onClick={() => setPaymentType(m.id)}
+                        onClick={() => handleSelectPaymentType(m.id)}
                         style={{
                           padding: '6px 4px',
                           borderRadius: 'var(--radius-sm)',
@@ -564,7 +574,7 @@ export default function SaleModule({
             </div>
 
             {/* Bottom Checkout Trigger */}
-            <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid var(--card-border)' }}>
+            <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid var(--card-border)', paddingBottom: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
                 <span>Jami Summa:</span>
                 <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{formatPrimary(totals.subtotalUsd)}</span>
@@ -577,9 +587,11 @@ export default function SaleModule({
                 </div>
               )}
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: '800', color: 'var(--success)', marginBottom: '14px' }}>
-                <span>Sof Foyda:</span>
-                <span>+{formatPrimary(totals.profitUsd)}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px', fontWeight: '800', marginBottom: '14px' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Sof Foyda:</span>
+                <span style={{ color: totals.profitUsd >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+                  {totals.profitUsd >= 0 ? `+${formatPrimary(totals.profitUsd)}` : formatPrimary(totals.profitUsd)}
+                </span>
               </div>
 
               <Button
