@@ -79,12 +79,14 @@ export default function Dashboard({
   useEffect(() => {
     let totalStock = 0;
     let totalStockVal = 0;
-    parentProducts.forEach(p => {
-      totalStock += p.stock || 0;
-      totalStockVal += (p.stock || 0) * (p.cost_price || 0);
+    (parentProducts || []).forEach(p => {
+      if (p) {
+        totalStock += p.stock || 0;
+        totalStockVal += (p.stock || 0) * (p.cost_price || 0);
+      }
     });
 
-    const lowStock = parentProducts.filter(p => p.stock <= 5);
+    const lowStock = (parentProducts || []).filter(p => p && p.stock <= 5);
     setLowStockProducts(lowStock);
 
     const now = new Date();

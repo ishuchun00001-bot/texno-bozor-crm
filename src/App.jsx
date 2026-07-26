@@ -35,10 +35,11 @@ class ErrorBoundary extends React.Component {
   }
 
   handleReset = () => {
-    localStorage.removeItem('local_products');
-    localStorage.removeItem('local_sales');
-    localStorage.removeItem('local_sale_items');
-    localStorage.removeItem('local_db_seeded');
+    try {
+      localStorage.clear();
+    } catch (e) {
+      console.error(e);
+    }
     clearSecureSession();
     window.location.reload();
   };
@@ -196,12 +197,21 @@ function App() {
     let localExps = [];
 
     try {
-      localProds = JSON.parse(localStorage.getItem('local_products') || '[]');
-      localSales = JSON.parse(localStorage.getItem('local_sales') || '[]');
-      localItems = JSON.parse(localStorage.getItem('local_sale_items') || '[]');
-      localExps = JSON.parse(localStorage.getItem('local_expenses') || '[]');
-    } catch (e) {
-      console.error("LocalStorage parse error:", e);
+      const p = JSON.parse(localStorage.getItem('local_products') || '[]');
+      const s = JSON.parse(localStorage.getItem('local_sales') || '[]');
+      const i = JSON.parse(localStorage.getItem('local_sale_items') || '[]');
+      const e = JSON.parse(localStorage.getItem('local_expenses') || '[]');
+
+      localProds = Array.isArray(p) ? p : [];
+      localSales = Array.isArray(s) ? s : [];
+      localItems = Array.isArray(i) ? i : [];
+      localExps = Array.isArray(e) ? e : [];
+    } catch (err) {
+      console.error("LocalStorage parse error:", err);
+      localProds = [];
+      localSales = [];
+      localItems = [];
+      localExps = [];
     }
 
     const hasMoto = Array.isArray(localProds) && localProds.some(p => p && p.store_type === 'moto');
