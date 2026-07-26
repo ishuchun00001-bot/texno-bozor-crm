@@ -4,6 +4,7 @@ import Dashboard from './components/Dashboard';
 import Inventory from './components/Inventory';
 import SalesHistory from './components/SalesHistory';
 import Debtors from './components/Debtors';
+import Expenses from './components/Expenses';
 import CreditCalculator from './components/CreditCalculator';
 import Analytics from './components/Analytics';
 import TelegramSettingsModal from './components/TelegramSettingsModal';
@@ -111,6 +112,7 @@ function App() {
   const [products, setProducts] = useState([]);
   const [sales, setSales] = useState([]);
   const [saleItems, setSaleItems] = useState([]);
+  const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState('');
 
@@ -190,11 +192,13 @@ function App() {
     let localProds = [];
     let localSales = [];
     let localItems = [];
+    let localExps = [];
 
     try {
       localProds = JSON.parse(localStorage.getItem('local_products') || '[]');
       localSales = JSON.parse(localStorage.getItem('local_sales') || '[]');
       localItems = JSON.parse(localStorage.getItem('local_sale_items') || '[]');
+      localExps = JSON.parse(localStorage.getItem('local_expenses') || '[]');
     } catch (e) {
       console.error("LocalStorage parse error:", e);
     }
@@ -215,6 +219,7 @@ function App() {
     setProducts(localProds);
     setSales(localSales);
     setSaleItems(localItems);
+    setExpenses(localExps);
   };
 
   const fetchData = async () => {
@@ -225,12 +230,14 @@ function App() {
           const { data: prods, error: err1 } = await supabase.from('products').select('*').order('created_at', { ascending: false });
           const { data: sls, error: err2 } = await supabase.from('sales').select('*').order('created_at', { ascending: false });
           const { data: items, error: err3 } = await supabase.from('sale_items').select('*');
+          const { data: exps } = await supabase.from('expenses').select('*').order('created_at', { ascending: false });
 
           if (err1 || err2 || err3) throw err1 || err2 || err3;
 
           setProducts(prods || []);
           setSales(sls || []);
           setSaleItems(items || []);
+          setExpenses(exps || JSON.parse(localStorage.getItem('local_expenses') || '[]'));
           setDbError('');
         } catch (supabaseErr) {
           console.warn('Supabase-dan yuklashda xatolik yuz berdi. Lokal rejimga o\'tiladi:', supabaseErr.message);
@@ -264,6 +271,7 @@ function App() {
             products={filteredProducts}
             sales={filteredSales}
             saleItems={saleItems}
+            expenses={expenses}
             loading={loading}
             rates={rates}
             currency={currency}
@@ -293,6 +301,16 @@ function App() {
             currentStore={currentStore}
           />
         );
+      case 'expenses':
+        return (
+          <Expenses
+            expenses={expenses}
+            onRefresh={fetchData}
+            loading={loading}
+            rates={rates}
+            currency={currency}
+          />
+        );
       case 'calculator':
         return (
           <CreditCalculator
@@ -317,6 +335,7 @@ function App() {
             products={filteredProducts}
             sales={filteredSales}
             saleItems={saleItems}
+            expenses={expenses}
             onRefresh={fetchData}
             rates={rates}
             currency={currency}
@@ -324,7 +343,7 @@ function App() {
           />
         );
       default:
-        return <Dashboard products={filteredProducts} sales={filteredSales} loading={loading} rates={rates} currency={currency} currentStore={currentStore} />;
+        return <Dashboard products={filteredProducts} sales={filteredSales} expenses={expenses} loading={loading} rates={rates} currency={currency} currentStore={currentStore} />;
     }
   };
 

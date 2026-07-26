@@ -1,44 +1,90 @@
 import React, { useState } from 'react';
-import { createPortal } from 'react-dom';
+import { 
+  ShoppingCart, 
+  Search, 
+  Trash2, 
+  Check, 
+  CreditCard, 
+  DollarSign, 
+  Percent, 
+  AlertCircle,
+  Plus,
+  Minus
+} from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import { formatCurrency, DEFAULT_RATES } from '../utils/currency';
 import { sendTelegramNotification } from './TelegramSettingsModal';
+import { useToast } from './Toast';
+import Button from './ui/Button';
+import Badge from './ui/Badge';
+import Card from './ui/Card';
+import Input from './ui/Input';
+import Modal from './ui/Modal';
 
-export default function POS({ products = [], onRefresh, rates = DEFAULT_RATES, currency = 'USD' }) {
+export const PAYMENT_METHODS = [
+  { id: 'cash', label: 'Naqd', color: 'var(--success)' },
+  { id: 'card', label: 'Karta (2% bank)', color: 'var(--brand-accent)' },
+  { id: 'nasiya', label: 'Nasiya (5% xizmat)', color: 'var(--warning)' },
+  { id: 'kredit', label: 'Kredit', color: 'var(--brand-gold)' },
+  { id: 'uzum', label: 'Uzum', color: '#7c3aed' },
+  { id: 'alif', label: 'Alif', color: '#2563eb' },
+  { id: 'other', label: 'Boshqa', color: 'var(--text-muted)' }
+];
+
+export default function POS({ products = [], onRefresh, rates = DEFAULT_RATES, currency = 'USD', currentStore = 'all' }) {
+  const toast = useToast();
   const [cart, setCart] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showReceiptModal, setShowReceiptModal] = useState(false);
-  const [completedSale, setCompletedSale] = useState(null);
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Qidiruv bo'yicha saralangan tovarlar (Nomi, Brendi, Modeli va SKU bo'yicha)
-  const filteredProducts = products.filter(p => 
-    (p.name && p.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (p.brand && p.brand.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (p.model && p.model.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (p.sku && p.sku.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  // To'lov turlari va aralash to'lov qiymatlari (USD yoki Joriy Valyutada)
+  const [paymentType, setPaymentType] = useState('cash'); // 'cash', 'card', 'mixed', etc.
+  const [payments, setPayments] = useState({
+    cash: 0,
+    card: 0,
+    nasiya: 0,
+    kredit: 0,
+    uzum: 0,
+    alif: 0,
+    other: 0
+  });
 
-  // Savatga tovar qo'shish
+  const filteredProducts = products.filter(p => {
+    const matchesStore = currentStore === 'all' || (p.store_type || 'texno') === currentStore;
+    const matchesQuery = 
+      (p.name && p.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (p.brand && p.brand.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (p.model && p.model.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (p.sku && p.sku.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    return matchesStore && matchesQuery;
+  });
+
   const addToCart = (product) => {
     if (product.stock <= 0) return;
 
     const existingItem = cart.find(item => item.id === product.id);
+    const rate = rates[currency] || 1;
+    const initialSellingPrice = Math.round((product.selling_price || product.cost_price || 0) * rate);
 
     if (existingItem) {
       if (existingItem.quantity >= product.stock) {
-        alert("Omborda yetarli mahsulot mavjud emas!");
+        toast.warning("Omborda yetarli mahsulot mavjud emas!");
         return;
       }
       setCart(cart.map(item => 
         item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
       ));
     } else {
-      setCart([...cart, { ...product, quantity: 1 }]);
+      setCart([...cart, { 
+        ...product, 
+        quantity: 1, 
+        custom_selling_price: initialSellingPrice
+      }]);
     }
   };
 
-  // Savatdagi miqdorni o'zgartirish
   const updateQuantity = (id, amount) => {
     const item = cart.find(i => i.id === id);
     const prod = products.find(p => p.id === id);
@@ -50,65 +96,152 @@ export default function POS({ products = [], onRefresh, rates = DEFAULT_RATES, c
     if (newQty <= 0) {
       setCart(cart.filter(i => i.id !== id));
     } else if (newQty > prod.stock) {
-      alert("Omborda jami bo'lib faqat " + prod.stock + " dona tovar mavjud!");
+      toast.warning("Omborda jami bo'lib faqat " + prod.stock + " dona tovar mavjud!");
     } else {
       setCart(cart.map(i => i.id === id ? { ...i, quantity: newQty } : i));
     }
   };
 
-  // Savatni tozalash
+  const updateItemPrice = (id, newPrice) => {
+    const p = Math.max(0, parseFloat(newPrice) || 0);
+    setCart(cart.map(item => item.id === id ? { ...item, custom_selling_price: p } : item));
+  };
+
   const clearCart = () => {
     setCart([]);
   };
 
-  // Hisob-kitoblar
+  // Cart Subtotals
   const getCartTotals = () => {
+    const rate = rates[currency] || 1;
     let subtotal = 0;
     let totalCost = 0;
     
     cart.forEach(item => {
-      subtotal += item.selling_price * item.quantity;
-      totalCost += item.cost_price * item.quantity;
+      const priceUsd = (parseFloat(item.custom_selling_price) || 0) / rate;
+      const costUsd = parseFloat(item.cost_price) || 0;
+
+      subtotal += priceUsd * item.quantity;
+      totalCost += costUsd * item.quantity;
     });
 
     return {
-      subtotal,
-      totalCost,
-      profit: subtotal - totalCost
+      subtotalUsd: subtotal,
+      totalCostUsd: totalCost,
+      profitUsd: subtotal - totalCost
     };
   };
 
-  const { subtotal, totalCost, profit } = getCartTotals();
+  const { subtotalUsd, totalCostUsd, profitUsd } = getCartTotals();
 
-  // Sotuvni tasdiqlash va Supabase database-ga yozish
+  // Modal Ochilganda To'lovlarni Standartlash
+  const openCheckoutModal = () => {
+    if (cart.length === 0) {
+      toast.warning("Savat bo'sh! Avval tovar tanlang.");
+      return;
+    }
+
+    const rate = rates[currency] || 1;
+    const subtotalDisplay = Math.round(subtotalUsd * rate);
+
+    setPaymentType('cash');
+    setPayments({
+      cash: subtotalDisplay,
+      card: 0,
+      nasiya: 0,
+      kredit: 0,
+      uzum: 0,
+      alif: 0,
+      other: 0
+    });
+    setIsCheckoutModalOpen(true);
+  };
+
+  const handlePaymentChange = (methodId, val) => {
+    const num = Math.max(0, parseFloat(val) || 0);
+    setPayments(prev => ({ ...prev, [methodId]: num }));
+  };
+
+  // Komissiyalar va Qolgan Summa Kalkulyatsiyasi
+  const getCheckoutCalculations = () => {
+    const rate = rates[currency] || 1;
+    const subtotalDisplay = Math.round(subtotalUsd * rate);
+
+    let totalPaidDisplay = 0;
+    if (paymentType === 'mixed') {
+      totalPaidDisplay = Object.values(payments).reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
+    } else {
+      totalPaidDisplay = subtotalDisplay;
+    }
+
+    const remainingDisplay = subtotalDisplay - totalPaidDisplay;
+
+    // Karta komissiyasi (2%) va Nasiya xarajati (5%)
+    let cardAmountDisplay = paymentType === 'card' ? subtotalDisplay : (payments.card || 0);
+    let nasiyaAmountDisplay = paymentType === 'nasiya' ? subtotalDisplay : (payments.nasiya || 0);
+
+    const cardCommissionDisplay = Math.round(cardAmountDisplay * 0.02);
+    const nasiyaFeeDisplay = Math.round(nasiyaAmountDisplay * 0.05);
+
+    const netRevenueDisplay = subtotalDisplay - cardCommissionDisplay - nasiyaFeeDisplay;
+
+    return {
+      subtotalDisplay,
+      totalPaidDisplay,
+      remainingDisplay,
+      cardCommissionDisplay,
+      nasiyaFeeDisplay,
+      netRevenueDisplay,
+      cardCommissionUsd: cardCommissionDisplay / rate,
+      nasiyaFeeUsd: nasiyaFeeDisplay / rate,
+      netRevenueUsd: netRevenueDisplay / rate
+    };
+  };
+
+  const calc = getCheckoutCalculations();
+
   const handleCheckout = async () => {
     if (cart.length === 0 || isSubmitting) return;
 
+    if (paymentType === 'mixed' && Math.abs(calc.remainingDisplay) > 1) {
+      toast.error("To'langan jami summa umumiy summaq teng bo'lishi kerak! Qolgan summa: " + formatPrimary(calc.remainingDisplay / (rates[currency] || 1)));
+      return;
+    }
+
     setIsSubmitting(true);
-    const totals = getCartTotals();
+    const rate = rates[currency] || 1;
 
     try {
+      const salePayload = {
+        total_amount: subtotalUsd,
+        total_cost: totalCostUsd,
+        profit: profitUsd - calc.cardCommissionUsd - calc.nasiyaFeeUsd,
+        card_commission: calc.cardCommissionUsd,
+        nasiya_fee: calc.nasiyaFeeUsd,
+        net_amount: calc.netRevenueUsd,
+        payment_method: paymentType,
+        payment_details: paymentType === 'mixed' ? payments : { [paymentType]: Math.round(subtotalUsd * rate) },
+        store_type: currentStore === 'moto' ? 'moto' : 'texno',
+        created_at: new Date().toISOString()
+      };
+
+      let newSaleId = `sale-${Date.now()}`;
+
       if (isSupabaseConfigured()) {
-        // 1. sales jadvaliga yangi sotuv qo'shish
         const { data: saleData, error: saleError } = await supabase
           .from('sales')
-          .insert([{
-            total_amount: totals.subtotal,
-            total_cost: totals.totalCost,
-            profit: totals.profit
-          }])
+          .insert([salePayload])
           .select();
 
         if (saleError) throw saleError;
-        const newSaleId = saleData[0].id;
+        newSaleId = saleData[0].id;
 
-        // 2. sale_items jadvaliga batafsil tovarlarni qo'shish
         const saleItemsData = cart.map(item => ({
           sale_id: newSaleId,
           product_id: item.id,
           quantity: item.quantity,
           cost_price: item.cost_price,
-          selling_price: item.selling_price
+          selling_price: (parseFloat(item.custom_selling_price) || 0) / rate
         }));
 
         const { error: itemsError } = await supabase
@@ -117,46 +250,17 @@ export default function POS({ products = [], onRefresh, rates = DEFAULT_RATES, c
 
         if (itemsError) throw itemsError;
 
-        // 3. products jadvalida ombor sonini yangilash
         for (const item of cart) {
           const updatedStock = Math.max(0, item.stock - item.quantity);
-          const { error: updateError } = await supabase
-            .from('products')
-            .update({ stock: updatedStock })
-            .eq('id', item.id);
-          if (updateError) throw updateError;
+          await supabase.from('products').update({ stock: updatedStock }).eq('id', item.id);
         }
-
-        setCompletedSale({
-          id: newSaleId,
-          items: cart,
-          totals,
-          date: new Date().toLocaleString('uz-UZ')
-        });
-
       } else {
-        // Offline Mock rejimda localStorage ishlatish
         let localSales = JSON.parse(localStorage.getItem('local_sales') || '[]');
         let localItems = JSON.parse(localStorage.getItem('local_sale_items') || '[]');
         let localProds = JSON.parse(localStorage.getItem('local_products') || '[]');
 
-        if (localProds.length === 0) {
-          localProds = [...products];
-        }
+        localSales.unshift({ id: newSaleId, ...salePayload });
 
-        const newSaleId = `sale-${Date.now()}`;
-        const saleDate = new Date().toISOString();
-
-        // Savdoni qo'shish
-        localSales.push({
-          id: newSaleId,
-          total_amount: totals.subtotal,
-          total_cost: totals.totalCost,
-          profit: totals.profit,
-          created_at: saleDate
-        });
-
-        // Batafsil sotilgan tovarlarni qo'shish
         cart.forEach((item, index) => {
           localItems.push({
             id: `item-${newSaleId}-${index}`,
@@ -164,28 +268,37 @@ export default function POS({ products = [], onRefresh, rates = DEFAULT_RATES, c
             product_id: item.id,
             quantity: item.quantity,
             cost_price: item.cost_price,
-            selling_price: item.selling_price,
-            created_at: saleDate
+            selling_price: (parseFloat(item.custom_selling_price) || 0) / rate,
+            created_at: salePayload.created_at
           });
 
-          // Omborni kamaytirish
           localProds = localProds.map(p => p.id === item.id ? { ...p, stock: Math.max(0, p.stock - item.quantity) } : p);
         });
 
         localStorage.setItem('local_sales', JSON.stringify(localSales));
         localStorage.setItem('local_sale_items', JSON.stringify(localItems));
         localStorage.setItem('local_products', JSON.stringify(localProds));
-
       }
 
-      // Telegram Bot bildirishnomasi
+      // Telegram Bot Notification
       const savedTg = localStorage.getItem('telegram_bot_settings');
       if (savedTg) {
         try {
           const tgSettings = JSON.parse(savedTg);
           if (tgSettings.notifySale !== false && tgSettings.botToken && tgSettings.chatId) {
-            const itemsList = cart.map(i => `• <b>${i.brand ? `[${i.brand}] ` : ''}${i.name}</b> x${i.quantity} (${formatPrimary(i.selling_price * i.quantity)})`).join('\n');
-            const tgMsg = `⚡ <b>SOTUV AMALGA OSHIRILDI!</b>\n\n🆔 Sotuv ID: #${newSaleId.substring(0, 12)}\n📅 Sana: ${new Date().toLocaleString('uz-UZ')}\n\n🛒 <b>Tovarlar:</b>\n${itemsList}\n\n------------------------------\n💵 <b>Jami To'lov:</b> ${formatPrimary(totals.subtotal)} (${formatSecondary(totals.subtotal)})\n📈 <b>Sof Foyda:</b> +${formatPrimary(totals.profit)}`;
+            const itemsList = cart.map(i => `• <b>${i.name}</b> x${i.quantity} (${formatPrimary((i.custom_selling_price || 0) / rate * i.quantity)})`).join('\n');
+            const tgMsg =
+              `⚡ <b>SOTUV AMALGA OSHIRILDI!</b>\n\n` +
+              `🆔 Sotuv ID: #${newSaleId.toString().substring(0, 12)}\n` +
+              `🏪 Do'kon: ${currentStore === 'moto' ? '🏍️ Moto Bozor' : '⚡ Texno Bozor'}\n` +
+              `📅 Sana: ${new Date().toLocaleString('uz-UZ')}\n\n` +
+              `🛒 <b>Tovarlar:</b>\n${itemsList}\n\n` +
+              `------------------------------\n` +
+              `💵 <b>Jami Summa:</b> ${formatPrimary(subtotalUsd)}\n` +
+              `💳 <b>Karta Komissiyasi (2%):</b> -${formatPrimary(calc.cardCommissionUsd)}\n` +
+              `⚠️ <b>Nasiya Xarajati (5%):</b> -${formatPrimary(calc.nasiyaFeeUsd)}\n` +
+              `🏢 <b>Sof Tushum:</b> <b>${formatPrimary(calc.netRevenueUsd)}</b>\n` +
+              `📈 <b>Sof Foyda:</b> +${formatPrimary(profitUsd - calc.cardCommissionUsd - calc.nasiyaFeeUsd)}`;
             sendTelegramNotification(tgMsg);
           }
         } catch (e) {
@@ -194,155 +307,277 @@ export default function POS({ products = [], onRefresh, rates = DEFAULT_RATES, c
       }
 
       clearCart();
-      onRefresh(); // Bosh sahifa va ombor sonlarini yangilash
-      alert("⚡ Sotuv Muvaffaqiyatli Bajarildi! Ombor soni kamaytirildi va moliyaviy hisobotga qo'shildi. ✅");
-
+      setIsCheckoutModalOpen(false);
+      toast.success("Sotuv muvaffaqiyatli bajarildi! Ombor va hisobotlar yangilandi. ✅");
+      onRefresh();
     } catch (err) {
       console.error(err);
-      alert("Xatolik yuz berdi: " + err.message);
+      toast.error("Xatolik yuz berdi: " + err.message);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const formatPrimary = (val) => {
-    return formatCurrency(val, currency, rates);
-  };
-
+  const formatPrimary = (val) => formatCurrency(val, currency, rates);
   const formatSecondary = (val) => {
-    const secondaryCurr = currency === 'USD' ? 'UZS' : 'USD';
-    return formatCurrency(val, secondaryCurr, rates);
+    const sec = currency === 'USD' ? 'UZS' : 'USD';
+    return formatCurrency(val, sec, rates);
   };
 
   return (
-    <div className="page-fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div className="page-header" style={{ marginBottom: '16px' }}>
-        <div className="page-title">
-          <h1>Sotuvlar Bo'limi (POS)</h1>
-          <p>Mijozlarga tovarlarni tezkor sotish va chek chiqarish paneli</p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', height: '100%' }}>
+      {/* Header Bar */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+        <div>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '24px', fontWeight: '800', color: 'var(--text-primary)' }}>
+            Sotuvlar Bo'limi (POS)
+          </h1>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px' }}>
+            Tovar tanlash, narx kiritish va aralash to'lovlarni amalga oshirish
+          </p>
         </div>
       </div>
 
-      <div className="pos-layout">
-        {/* Chap tomon: Tovarlar ro'yxati va qidiruv */}
-        <div className="pos-products">
-          <div className="pos-search-bar">
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Mahsulot nomi yoki SKU bo'yicha qidirish..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '20px' }}>
+        {/* Left Side: Product Grid & Search */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <Card style={{ padding: '12px 16px' }}>
+            <div style={{ position: 'relative' }}>
+              <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Mahsulot nomi, brend yoki SKU bo'yicha qidirish..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{ paddingLeft: '38px' }}
+              />
+            </div>
+          </Card>
 
-          <div className="pos-products-grid">
+          {/* Products Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px', maxHeight: '560px', overflowY: 'auto' }}>
             {filteredProducts.map(p => {
               const isOutOfStock = p.stock <= 0;
+              const rate = rates[currency] || 1;
+              const priceDisplay = formatPrimary(p.selling_price || p.cost_price);
+
               return (
-                <div 
-                  key={p.id} 
-                  className={`pos-product-card ${isOutOfStock ? 'out-of-stock' : ''}`}
+                <div
+                  key={p.id}
                   onClick={() => addToCart(p)}
+                  style={{
+                    background: 'var(--card-bg)',
+                    border: '1px solid var(--card-border)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '12px',
+                    cursor: isOutOfStock ? 'not-allowed' : 'pointer',
+                    opacity: isOutOfStock ? 0.5 : 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justify: 'space-between',
+                    transition: 'all 0.15s ease'
+                  }}
                 >
-                  <img src={p.image_url} alt={p.name} className="pos-product-img" />
-                  <div className="pos-product-name">{p.name}</div>
-                  <div className="pos-product-meta">
-                    <div className="pos-product-price">
-                      {formatPrimary(p.selling_price)}
-                      <span className="currency-subtext" style={{ fontSize: '11px' }}>
-                        {formatSecondary(p.selling_price)}
-                      </span>
-                    </div>
-                    <div className={`pos-product-stock ${isOutOfStock ? 'danger' : ''}`} style={{color: isOutOfStock ? 'var(--neon-red)' : 'var(--text-muted)'}}>
-                      {isOutOfStock ? 'Zahira tugadi' : `${p.stock} dona`}
-                    </div>
+                  <div>
+                    <img 
+                      src={p.image_url} 
+                      alt={p.name} 
+                      style={{ width: '100%', height: '90px', objectFit: 'cover', borderRadius: '6px', marginBottom: '8px' }} 
+                    />
+                    <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', lineHeight: 1.3 }}>{p.name}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>Tannarx: {formatPrimary(p.cost_price)}</div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', paddingTop: '8px', borderTop: '1px solid var(--card-border)' }}>
+                    <span style={{ fontSize: '13px', fontWeight: '800', color: 'var(--brand-gold)' }}>{priceDisplay}</span>
+                    <Badge variant={isOutOfStock ? 'danger' : 'info'}>{isOutOfStock ? 'Tugagan' : `${p.stock} dona`}</Badge>
                   </div>
                 </div>
               );
             })}
-            {filteredProducts.length === 0 && (
-              <div style={{ gridColumn: '1/-1', textAlign: 'center', color: 'var(--text-muted)', padding: '40px' }}>
-                Hech qanday mahsulot topilmadi.
-              </div>
-            )}
           </div>
         </div>
 
-        {/* O'ng tomon: Savat paneli */}
-        <div className="pos-cart">
-          <div className="pos-cart-header">
-            <h3>Savat ({cart.length} turdagi tovar)</h3>
-            {cart.length > 0 && (
-              <button onClick={clearCart} className="clear-cart-btn">Tozalash</button>
-            )}
-          </div>
+        {/* Right Side: Cart & Checkout Panel */}
+        <Card style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '20px' }}>
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', paddingBottom: '10px', borderBottom: '1px solid var(--card-border)' }}>
+              <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ShoppingCart size={18} style={{ color: 'var(--brand-accent)' }} /> Savat ({cart.length})
+              </h2>
+              {cart.length > 0 && (
+                <Button variant="danger" size="sm" onClick={clearCart}>Tozalash</Button>
+              )}
+            </div>
 
-          <div className="pos-cart-items">
-            {cart.map(item => (
-              <div key={item.id} className="cart-item">
-                <img src={item.image_url} alt={item.name} className="cart-item-img" />
-                <div className="cart-item-details">
-                  <div className="cart-item-name" title={item.name}>{item.name}</div>
-                  <div className="cart-item-price">
-                    {formatPrimary(item.selling_price)}
-                    <span className="currency-subtext" style={{ fontSize: '11px', display: 'inline', marginLeft: '6px' }}>
-                      ({formatSecondary(item.selling_price)})
-                    </span>
+            {/* Cart Items List */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '340px', overflowY: 'auto' }}>
+              {cart.length === 0 ? (
+                <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px 0', fontSize: '12.5px' }}>
+                  Savat bo'sh! Chap tomondan tovarlarni tanlang. 🛒
+                </div>
+              ) : (
+                cart.map(item => (
+                  <div key={item.id} style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '10px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--card-border)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div style={{ fontSize: '12.5px', fontWeight: '700', color: 'var(--text-primary)' }}>{item.name}</div>
+                      <button onClick={() => updateQuantity(item.id, -item.quantity)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer' }}>
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', alignItems: 'center' }}>
+                      {/* Sotuv narxini tahrirlash */}
+                      <div>
+                        <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', display: 'block' }}>Sotish narxi ({currency}):</span>
+                        <input
+                          type="number"
+                          className="form-control"
+                          value={item.custom_selling_price}
+                          onChange={(e) => updateItemPrice(item.id, e.target.value)}
+                          style={{ padding: '4px 6px', fontSize: '12px', height: '28px' }}
+                        />
+                      </div>
+
+                      {/* Quantity controls */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                        <button onClick={() => updateQuantity(item.id, -1)} style={{ width: '24px', height: '24px', borderRadius: '4px', border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: '#fff', cursor: 'pointer' }}>-</button>
+                        <span style={{ fontSize: '13px', fontWeight: '700', width: '20px', textAlign: 'center' }}>{item.quantity}</span>
+                        <button onClick={() => updateQuantity(item.id, 1)} style={{ width: '24px', height: '24px', borderRadius: '4px', border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: '#fff', cursor: 'pointer' }}>+</button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="cart-item-qty">
-                  <button onClick={() => updateQuantity(item.id, -1)} className="cart-qty-btn">-</button>
-                  <span className="cart-item-quantity">{item.quantity}</span>
-                  <button onClick={() => updateQuantity(item.id, 1)} className="cart-qty-btn">+</button>
-                </div>
-                <button onClick={() => updateQuantity(item.id, -item.quantity)} className="cart-item-remove">🗑️</button>
-              </div>
-            ))}
-            {cart.length === 0 && (
-              <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '60px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
-                <span>Savat bo'sh. Chap tomondan tovarlarni tanlang.</span>
-              </div>
-            )}
+                ))
+              )}
+            </div>
           </div>
 
-          <div className="pos-cart-summary">
-            <div className="summary-row">
-              <span>Umumiy miqdor:</span>
-              <span>{cart.reduce((acc, curr) => acc + curr.quantity, 0)} dona</span>
+          {/* Cart Summary & Checkout Trigger */}
+          <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--card-border)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+              <span>Jami Tushum:</span>
+              <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{formatPrimary(subtotalUsd)}</span>
             </div>
-            
-            {/* Faqat admin uchun foyda prognozi */}
-            <div className="summary-row" style={{ color: 'var(--neon-green)', fontWeight: '500' }}>
-              <span>Sof foyda prognozi:</span>
-              <span>
-                +{formatPrimary(profit)} / +{formatSecondary(profit)}
-              </span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: '800', color: 'var(--success)', marginBottom: '14px' }}>
+              <span>Kutilayotgan Foyda:</span>
+              <span>+{formatPrimary(profitUsd)}</span>
             </div>
 
-            <div className="summary-row total">
-              <span>Jami Summa:</span>
-              <span style={{ textAlign: 'right' }}>
-                {formatPrimary(subtotal)}
-                <span className="currency-subtext" style={{ color: 'var(--text-secondary)', display: 'block' }}>
-                  {formatSecondary(subtotal)}
-                </span>
-              </span>
-            </div>
-
-            <button 
-              onClick={handleCheckout} 
-              disabled={cart.length === 0 || isSubmitting} 
-              className="btn-primary" 
-              style={{ width: '100%', justifyContent: 'center', height: '48px', fontSize: '15px' }}
-            >
-              {isSubmitting ? "Yuborilmoqda..." : "⚡ Sotuvni tasdiqlash"}
-            </button>
+            <Button variant="primary" style={{ width: '100%', padding: '12px', justifyContent: 'center' }} onClick={openCheckoutModal} disabled={cart.length === 0}>
+              <CreditCard size={18} /> Sotuvni Rasmiylashtirish
+            </Button>
           </div>
-        </div>
+        </Card>
       </div>
 
+      {/* Aralash va Ko'p Tizimli To'lov Modali */}
+      <Modal
+        isOpen={isCheckoutModalOpen}
+        onClose={() => setIsCheckoutModalOpen(false)}
+        title="To'lov Usullari va Rasmiylashtirish"
+        maxWidth="540px"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Summary Box */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', background: 'var(--bg-secondary)', padding: '12px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--card-border)' }}>
+            <div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Umumiy Summa</div>
+              <div style={{ fontSize: '18px', fontWeight: '800', color: 'var(--brand-gold)' }}>{formatPrimary(subtotalUsd)}</div>
+            </div>
+
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Sof Tushum (Komissiyasiz)</div>
+              <div style={{ fontSize: '16px', fontWeight: '800', color: 'var(--success)' }}>{formatPrimary(calc.netRevenueUsd)}</div>
+            </div>
+          </div>
+
+          {/* Payment Method Selector */}
+          <div className="form-group">
+            <label className="form-label">To'lov Turi</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+              {PAYMENT_METHODS.map(m => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setPaymentType(m.id)}
+                  style={{
+                    padding: '6px 4px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--card-border)',
+                    background: paymentType === m.id ? m.color : 'var(--bg-secondary)',
+                    color: paymentType === m.id ? '#ffffff' : 'var(--text-secondary)',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {m.label}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setPaymentType('mixed')}
+                style={{
+                  padding: '6px 4px',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--card-border)',
+                  background: paymentType === 'mixed' ? 'var(--brand-accent)' : 'var(--bg-secondary)',
+                  color: paymentType === 'mixed' ? '#ffffff' : 'var(--text-secondary)',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  cursor: 'pointer'
+                }}
+              >
+                🔀 Aralash To'lov
+              </button>
+            </div>
+          </div>
+
+          {/* Aralash To'lov Kiritish Paneli */}
+          {paymentType === 'mixed' && (
+            <div style={{ padding: '14px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--card-border)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '4px' }}>Aralash Summalarni Kiritish ({currency}):</div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <Input label="Naqd" type="number" value={payments.cash} onChange={(e) => handlePaymentChange('cash', e.target.value)} />
+                <Input label="Karta (2% bank)" type="number" value={payments.card} onChange={(e) => handlePaymentChange('card', e.target.value)} />
+                <Input label="Nasiya (5% xizmat)" type="number" value={payments.nasiya} onChange={(e) => handlePaymentChange('nasiya', e.target.value)} />
+                <Input label="Kredit" type="number" value={payments.kredit} onChange={(e) => handlePaymentChange('kredit', e.target.value)} />
+                <Input label="Uzum" type="number" value={payments.uzum} onChange={(e) => handlePaymentChange('uzum', e.target.value)} />
+                <Input label="Alif" type="number" value={payments.alif} onChange={(e) => handlePaymentChange('alif', e.target.value)} />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 10px', background: 'var(--card-bg)', borderRadius: 'var(--radius-sm)', fontSize: '12.5px', marginTop: '4px' }}>
+                <span>Qolgan Summa:</span>
+                <span style={{ fontWeight: '800', color: Math.abs(calc.remainingDisplay) <= 1 ? 'var(--success)' : 'var(--danger)' }}>
+                  {formatPrimary(calc.remainingDisplay / (rates[currency] || 1))}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Automatic Commissions Notice */}
+          {(calc.cardCommissionDisplay > 0 || calc.nasiyaFeeDisplay > 0) && (
+            <div style={{ padding: '10px 12px', background: 'rgba(234, 179, 8, 0.1)', border: '1px solid var(--warning)', borderRadius: 'var(--radius-sm)', fontSize: '11.5px', color: 'var(--warning)' }}>
+              {calc.cardCommissionDisplay > 0 && <div>• Karta 2% bank komissiyasi: -{formatPrimary(calc.cardCommissionUsd)}</div>}
+              {calc.nasiyaFeeDisplay > 0 && <div>• Nasiya 5% xizmat xarajati: -{formatPrimary(calc.nasiyaFeeUsd)}</div>}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
+            <Button variant="secondary" onClick={() => setIsCheckoutModalOpen(false)}>Bekor qilish</Button>
+            <Button 
+              variant="primary" 
+              onClick={handleCheckout} 
+              loading={isSubmitting}
+              disabled={paymentType === 'mixed' && Math.abs(calc.remainingDisplay) > 1}
+            >
+              <Check size={16} /> Sotuvni Yakunlash
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

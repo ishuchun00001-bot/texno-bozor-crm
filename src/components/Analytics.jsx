@@ -33,6 +33,7 @@ export default function Analytics({
   products = [], 
   sales = [], 
   saleItems = [], 
+  expenses = [],
   onRefresh, 
   rates = DEFAULT_RATES, 
   currency = 'USD', 
@@ -85,10 +86,17 @@ export default function Analytics({
       } catch {}
 
       if (!trendMap[dateStr]) {
-        trendMap[dateStr] = { rev: 0, cost: 0 };
+        trendMap[dateStr] = { rev: 0, cost: 0, net: 0 };
       }
-      trendMap[dateStr].rev += parseFloat(sale.total_amount) || 0;
-      trendMap[dateStr].cost += parseFloat(sale.total_cost) || 0;
+      const rev = parseFloat(sale.total_amount) || 0;
+      const cost = parseFloat(sale.total_cost) || 0;
+      const cardComm = parseFloat(sale.card_commission) || 0;
+      const nasiyaFee = parseFloat(sale.nasiya_fee) || 0;
+      const profit = parseFloat(sale.profit) || (rev - cost);
+
+      trendMap[dateStr].rev += rev;
+      trendMap[dateStr].cost += cost;
+      trendMap[dateStr].net += (profit - cardComm - nasiyaFee);
     });
 
     const trendLabels = Object.keys(trendMap);
@@ -98,7 +106,7 @@ export default function Analytics({
       labels: trendLabels,
       datasets: [
         {
-          label: `Tushum (${currency})`,
+          label: `Jami Tushum (${currency})`,
           data: trendLabels.map(k => Math.round(trendMap[k].rev * scale)),
           borderColor: '#6366f1',
           backgroundColor: 'rgba(99, 102, 241, 0.1)',
@@ -106,16 +114,16 @@ export default function Analytics({
           tension: 0.35
         },
         {
-          label: `Tannarx (${currency})`,
-          data: trendLabels.map(k => Math.round(trendMap[k].cost * scale)),
-          borderColor: '#ef4444',
-          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+          label: `Sof Foyda (${currency})`,
+          data: trendLabels.map(k => Math.round(trendMap[k].net * scale)),
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16, 185, 129, 0.1)',
           fill: true,
           tension: 0.35
         }
       ]
     });
-  }, [products, sales, saleItems, currentStore, currency, rates]);
+  }, [products, sales, saleItems, expenses, currentStore, currency, rates]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>

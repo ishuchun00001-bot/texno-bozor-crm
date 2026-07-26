@@ -5,6 +5,7 @@ import {
   Receipt, 
   Calculator, 
   Users, 
+  Wallet,
   BarChart3, 
   Send, 
   ChevronLeft, 
@@ -22,6 +23,7 @@ export default function Sidebar({
     { id: 'dashboard', label: 'Asosiy Panel', icon: LayoutDashboard },
     { id: 'inventory', label: 'Tovarlar Ombori', icon: Package },
     { id: 'sales', label: 'Sotuvlar Tarixi', icon: Receipt },
+    { id: 'expenses', label: 'Harajatlar', icon: Wallet },
     { id: 'calculator', label: 'Kredit Kalkulyator', icon: Calculator },
     { id: 'debtors', label: 'Nasiya va Qarzlar', icon: Users },
     { id: 'analytics', label: 'Tahlillar', icon: BarChart3 }

@@ -311,26 +311,66 @@ export default function SalesHistory({
                     {isExpanded && (
                       <tr>
                         <td colSpan="8" style={{ background: 'var(--bg-secondary)', padding: '16px 24px' }}>
-                          <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--brand-gold)', textTransform: 'uppercase', marginBottom: '8px' }}>
-                            Sotilgan Tovarlar Tarkibi ({items.length} dona)
-                          </div>
-                          {items.length === 0 ? (
-                            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Tovar detali saqlanmagan.</div>
-                          ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                              {items.map(item => {
-                                const prod = products.find(p => p.id === item.product_id);
-                                const itemPrice = item.selling_price || item.price || item.unit_price || (prod ? prod.selling_price : 0);
-                                const qty = item.quantity || 1;
-                                return (
-                                  <div key={item.id || item.product_id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: 'var(--text-secondary)', padding: '4px 0', borderBottom: '1px dashed var(--card-border)' }}>
-                                    <span>• {prod ? prod.name : 'Tovar ID: ' + item.product_id} x {qty} dona</span>
-                                    <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{formatPrimary(itemPrice * qty)}</span>
-                                  </div>
-                                );
-                              })}
+                          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '20px' }}>
+                            <div>
+                              <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--brand-gold)', textTransform: 'uppercase', marginBottom: '8px' }}>
+                                Sotilgan Tovarlar Tarkibi ({items.length} dona)
+                              </div>
+                              {items.length === 0 ? (
+                                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Tovar detali saqlanmagan.</div>
+                              ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                  {items.map(item => {
+                                    const prod = products.find(p => p.id === item.product_id);
+                                    const itemPrice = item.selling_price || item.price || item.unit_price || (prod ? prod.selling_price : 0);
+                                    const itemCost = item.cost_price || (prod ? prod.cost_price : 0);
+                                    const qty = item.quantity || 1;
+                                    const itemProfit = (itemPrice - itemCost) * qty;
+
+                                    return (
+                                      <div key={item.id || item.product_id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', color: 'var(--text-secondary)', padding: '4px 0', borderBottom: '1px dashed var(--card-border)' }}>
+                                        <div>
+                                          <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>• {prod ? prod.name : 'Tovar ID: ' + item.product_id}</span>
+                                          <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '6px' }}>(x{qty} dona)</span>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '12px' }}>
+                                          <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{formatPrimary(itemPrice * qty)}</span>
+                                          <span style={{ fontWeight: '600', color: 'var(--success)', fontSize: '11.5px' }}>(+{formatPrimary(itemProfit)})</span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
                             </div>
-                          )}
+
+                            {/* Payment Breakdown & Commissions */}
+                            <div style={{ background: 'var(--card-bg)', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--card-border)', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px' }}>
+                              <div style={{ fontSize: '11.5px', fontWeight: '700', color: 'var(--text-primary)', borderBottom: '1px solid var(--card-border)', paddingBottom: '4px' }}>
+                                To'lov Tafsilotlari:
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'var(--text-muted)' }}>To'lov Usuli:</span>
+                                <Badge variant="success">{sale.payment_method || 'Naqd'}</Badge>
+                              </div>
+                              {sale.card_commission > 0 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--warning)' }}>
+                                  <span>Bank 2% Komissiya:</span>
+                                  <span>-{formatPrimary(sale.card_commission)}</span>
+                                </div>
+                              )}
+                              {sale.nasiya_fee > 0 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--warning)' }}>
+                                  <span>Nasiya 5% Xarajat:</span>
+                                  <span>-{formatPrimary(sale.nasiya_fee)}</span>
+                                </div>
+                              )}
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', color: 'var(--success)', borderTop: '1px solid var(--card-border)', paddingTop: '4px', marginTop: '2px' }}>
+                                <span>Sof Tushum:</span>
+                                <span>{formatPrimary(sale.net_amount || (sale.total_amount - (sale.card_commission || 0) - (sale.nasiya_fee || 0)))}</span>
+                              </div>
+                            </div>
+                          </div>
                         </td>
                       </tr>
                     )}

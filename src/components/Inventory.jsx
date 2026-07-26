@@ -135,17 +135,12 @@ export default function Inventory({
   const handleSave = async (e) => {
     e.preventDefault();
     setIsSaving(true);
-    setErrorMsg('');
-
-    if (sellingPrice < costPrice) {
-      setErrorMsg("Ogohlantirish: Sotish narxi sotib olingan narxdan kam bo'lmasligi kerak!");
-      setIsSaving(false);
-      return;
-    }
-
+    const rate = rates[currency] || 1;
+    const costPriceUsd = (parseFloat(costPrice) || 0) / rate;
+    const sellingPriceUsd = parseFloat(sellingPrice) > 0 ? (parseFloat(sellingPrice) / rate) : costPriceUsd;
+    
     try {
       const finalImageUrl = await uploadImage();
-      const rate = rates[currency] || 1;
       
       const productData = {
         name,
@@ -155,8 +150,8 @@ export default function Inventory({
         category,
         store_type: storeType,
         stock: parseInt(stock, 10) || 0,
-        cost_price: (parseFloat(costPrice) || 0) / rate,
-        selling_price: (parseFloat(sellingPrice) || 0) / rate,
+        cost_price: costPriceUsd,
+        selling_price: sellingPriceUsd,
         image_url: finalImageUrl
       };
 

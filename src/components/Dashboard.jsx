@@ -18,10 +18,13 @@ import {
   DollarSign, 
   ShoppingBag, 
   PackageCheck, 
-  AlertTriangle 
+  AlertTriangle,
+  Wallet,
+  Percent,
+  CreditCard,
+  Building2
 } from 'lucide-react';
 import { formatCurrency, DEFAULT_RATES } from '../utils/currency';
-import { mockProducts } from '../utils/mockData';
 import Card from './ui/Card';
 import Badge from './ui/Badge';
 
@@ -41,7 +44,8 @@ ChartJS.register(
 export default function Dashboard({ 
   products: parentProducts = [], 
   sales: parentSales = [], 
-  saleItems: parentSaleItems = [], 
+  saleItems: parentSaleItems = [],
+  expenses: parentExpenses = [],
   loading, 
   rates = DEFAULT_RATES, 
   currency = 'USD', 
@@ -49,10 +53,19 @@ export default function Dashboard({
 }) {
   const [filter, setFilter] = useState('monthly');
   const [filteredSales, setFilteredSales] = useState([]);
+  const [filteredExpenses, setFilteredExpenses] = useState([]);
+  
   const [metrics, setMetrics] = useState({
-    revenue: 0,
-    cost: 0,
-    profit: 0,
+    todaySalesCount: 0,
+    todayRevenue: 0,
+    todayProfit: 0,
+    todayExpenses: 0,
+    totalRevenue: 0,
+    grossProfit: 0,
+    totalCommissions: 0,
+    totalNasiyaFees: 0,
+    totalExpenses: 0,
+    netProfit: 0,
     stockCount: 0,
     stockValue: 0
   });
@@ -77,8 +90,9 @@ export default function Dashboard({
     setLowStockProducts(lowStock);
 
     const now = new Date();
-    let cutoffDate = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
 
+    let cutoffDate = new Date();
     if (filter === 'daily') {
       cutoffDate.setHours(0, 0, 0, 0);
     } else if (filter === 'weekly') {
@@ -89,31 +103,69 @@ export default function Dashboard({
       cutoffDate = new Date(0);
     }
 
-    const filtered = parentSales.filter(sale => {
-      const saleDate = new Date(sale.created_at);
-      return saleDate >= cutoffDate;
+    const filteredSls = parentSales.filter(s => new Date(s.created_at) >= cutoffDate);
+    const filteredExps = parentExpenses.filter(e => new Date(e.date || e.created_at) >= cutoffDate);
+
+    setFilteredSales(filteredSls);
+    setFilteredExpenses(filteredExps);
+
+    // Today's metrics
+    let tSalesCount = 0;
+    let tRev = 0;
+    let tProf = 0;
+    let tExps = 0;
+
+    parentSales.forEach(s => {
+      const sDateStr = new Date(s.created_at).toISOString().slice(0, 10);
+      if (sDateStr === todayStr) {
+        tSalesCount += 1;
+        tRev += parseFloat(s.total_amount) || 0;
+        tProf += parseFloat(s.profit) || 0;
+      }
     });
 
-    setFilteredSales(filtered);
-
-    let rev = 0;
-    let cost = 0;
-    let prof = 0;
-
-    filtered.forEach(sale => {
-      rev += parseFloat(sale.total_amount) || 0;
-      cost += parseFloat(sale.total_cost) || 0;
-      prof += parseFloat(sale.profit) || 0;
+    parentExpenses.forEach(e => {
+      const eDateStr = (e.date || e.created_at || '').slice(0, 10);
+      if (eDateStr === todayStr) {
+        tExps += parseFloat(e.amount) || 0;
+      }
     });
+
+    // Period totals
+    let totRev = 0;
+    let grossProf = 0;
+    let totCommissions = 0;
+    let totNasiyaFees = 0;
+
+    filteredSls.forEach(s => {
+      totRev += parseFloat(s.total_amount) || 0;
+      grossProf += parseFloat(s.profit) || 0;
+      totCommissions += parseFloat(s.card_commission) || 0;
+      totNasiyaFees += parseFloat(s.nasiya_fee) || 0;
+    });
+
+    let totExps = 0;
+    filteredExps.forEach(e => {
+      totExps += parseFloat(e.amount) || 0;
+    });
+
+    const netProf = grossProf - totCommissions - totNasiyaFees - totExps;
 
     setMetrics({
-      revenue: Math.round(rev),
-      cost: Math.round(cost),
-      profit: Math.round(prof),
+      todaySalesCount: tSalesCount,
+      todayRevenue: Math.round(tRev),
+      todayProfit: Math.round(tProf),
+      todayExpenses: Math.round(tExps),
+      totalRevenue: Math.round(totRev),
+      grossProfit: Math.round(grossProf),
+      totalCommissions: Math.round(totCommissions),
+      totalNasiyaFees: Math.round(totNasiyaFees),
+      totalExpenses: Math.round(totExps),
+      netProfit: Math.round(netProf),
       stockCount: totalStock,
       stockValue: Math.round(totalStockVal)
     });
-  }, [filter, parentProducts, parentSales]);
+  }, [filter, parentProducts, parentSales, parentExpenses]);
 
   const formatDateLabel = (dInput) => {
     try {
@@ -164,7 +216,7 @@ export default function Dashboard({
       labels,
       datasets: [
         {
-          label: `Tushum (${currency})`,
+          label: `Jami Tushum (${currency})`,
           data: revenues,
           borderColor: '#6366f1',
           backgroundColor: 'rgba(99, 102, 241, 0.08)',
@@ -173,7 +225,7 @@ export default function Dashboard({
           pointRadius: 3
         },
         {
-          label: `Sof Foyda (${currency})`,
+          label: `Foyda (${currency})`,
           data: profits,
           borderColor: '#10b981',
           backgroundColor: 'rgba(16, 185, 129, 0.08)',
@@ -246,192 +298,210 @@ export default function Dashboard({
             <Badge variant="info">{storeLabel}</Badge>
           </div>
           <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
-            Tizim ko'rsatkichlari va savdo tahlillari
+            Moliyaviy ko'rsatkichlar, komissiyalar, xarajatlar va Sof Foyda tahlili
           </p>
         </div>
 
-        {/* Date Filter Tabs */}
+        {/* Filter Pills */}
         <div style={{ display: 'flex', background: 'var(--bg-secondary)', padding: '3px', borderRadius: 'var(--radius-md)', border: '1px solid var(--card-border)' }}>
           {[
-            { id: 'daily', label: 'Kunlik' },
-            { id: 'weekly', label: 'Haftalik' },
-            { id: 'monthly', label: 'Oylik' },
-            { id: 'all', label: 'Barchasi' }
-          ].map(t => (
+            { id: 'daily', label: 'Bugun' },
+            { id: 'weekly', label: 'Shu hafta' },
+            { id: 'monthly', label: 'Shu oy' },
+            { id: 'all', label: 'Barcha davr' }
+          ].map(f => (
             <button
-              key={t.id}
-              onClick={() => setFilter(t.id)}
+              key={f.id}
+              onClick={() => setFilter(f.id)}
               style={{
                 padding: '5px 12px',
                 borderRadius: 'var(--radius-sm)',
                 border: 'none',
-                background: filter === t.id ? 'var(--brand-accent)' : 'transparent',
-                color: filter === t.id ? '#ffffff' : 'var(--text-secondary)',
-                fontSize: '12px',
+                background: filter === f.id ? 'var(--brand-accent)' : 'transparent',
+                color: filter === f.id ? '#ffffff' : 'var(--text-secondary)',
+                fontSize: '11.5px',
                 fontWeight: '600',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease'
               }}
             >
-              {t.label}
+              {f.label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* KPI Cards Grid */}
+      {/* 9 Enterprise KPI Cards Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
-        <div className="kpi-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <span className="kpi-subtitle">Umumiy Tushum</span>
-            <div className="kpi-icon-wrapper" style={{ color: 'var(--brand-accent)' }}>
-              <DollarSign size={18} />
-            </div>
+        {/* 1. Bugungi Sotuv */}
+        <Card style={{ padding: '16px 20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase' }}>Bugungi Sotuv</span>
+            <ShoppingBag size={16} style={{ color: 'var(--brand-accent)' }} />
           </div>
-          <div className="kpi-value">{formatPrimary(metrics.revenue)}</div>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-            {formatSecondary(metrics.revenue)}
+          <div style={{ fontSize: '20px', fontWeight: '800', fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
+            {formatPrimary(metrics.todayRevenue)}
           </div>
-        </div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+            {metrics.todaySalesCount} ta tranzaksiya ({formatSecondary(metrics.todayRevenue)})
+          </div>
+        </Card>
 
-        <div className="kpi-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <span className="kpi-subtitle">Tovarlar Tannarxi</span>
-            <div className="kpi-icon-wrapper" style={{ color: 'var(--text-muted)' }}>
-              <ShoppingBag size={18} />
-            </div>
+        {/* 2. Bugungi Foyda */}
+        <Card style={{ padding: '16px 20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase' }}>Bugungi Foyda</span>
+            <TrendingUp size={16} style={{ color: 'var(--success)' }} />
           </div>
-          <div className="kpi-value">{formatPrimary(metrics.cost)}</div>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-            {formatSecondary(metrics.cost)}
+          <div style={{ fontSize: '20px', fontWeight: '800', fontFamily: 'var(--font-display)', color: 'var(--success)' }}>
+            +{formatPrimary(metrics.todayProfit)}
           </div>
-        </div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+            {formatSecondary(metrics.todayProfit)}
+          </div>
+        </Card>
 
-        <div className="kpi-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <span className="kpi-subtitle">Sof Foyda</span>
-            <div className="kpi-icon-wrapper" style={{ color: 'var(--success)' }}>
-              <TrendingUp size={18} />
-            </div>
+        {/* 3. Bugungi Harajat */}
+        <Card style={{ padding: '16px 20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase' }}>Bugungi Harajat</span>
+            <Wallet size={16} style={{ color: 'var(--danger)' }} />
           </div>
-          <div className="kpi-value" style={{ color: 'var(--success)' }}>{formatPrimary(metrics.profit)}</div>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-            {formatSecondary(metrics.profit)} (+{metrics.revenue > 0 ? Math.round((metrics.profit / metrics.revenue) * 100) : 0}% marja)
+          <div style={{ fontSize: '20px', fontWeight: '800', fontFamily: 'var(--font-display)', color: 'var(--danger)' }}>
+            -{formatPrimary(metrics.todayExpenses)}
           </div>
-        </div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+            {formatSecondary(metrics.todayExpenses)}
+          </div>
+        </Card>
 
-        <div className="kpi-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <span className="kpi-subtitle">Ombor Qoldig'i</span>
-            <div className="kpi-icon-wrapper" style={{ color: 'var(--warning)' }}>
-              <PackageCheck size={18} />
-            </div>
+        {/* 4. Sof Foyda (Net Profit Highlight Card) */}
+        <Card style={{ padding: '16px 20px', borderColor: 'rgba(16, 185, 129, 0.4)', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(99, 102, 241, 0.04) 100%)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '11px', color: 'var(--success)', fontWeight: '700', textTransform: 'uppercase' }}>Sof Foyda (Net Profit)</span>
+            <DollarSign size={18} style={{ color: 'var(--success)' }} />
           </div>
-          <div className="kpi-value">{metrics.stockCount.toLocaleString()} dona</div>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-            Jami: {formatPrimary(metrics.stockValue)}
+          <div style={{ fontSize: '22px', fontWeight: '800', fontFamily: 'var(--font-display)', color: 'var(--success)' }}>
+            {formatPrimary(metrics.netProfit)}
           </div>
-        </div>
+          <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
+            Komissiyalar va xarajatlar chiqarilgan
+          </div>
+        </Card>
+
+        {/* 5. Jami Tushum */}
+        <Card style={{ padding: '16px 20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase' }}>Jami Tushum</span>
+            <DollarSign size={16} style={{ color: 'var(--brand-accent)' }} />
+          </div>
+          <div style={{ fontSize: '20px', fontWeight: '800', fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
+            {formatPrimary(metrics.totalRevenue)}
+          </div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+            {formatSecondary(metrics.totalRevenue)}
+          </div>
+        </Card>
+
+        {/* 6. Jami Komissiyalar (Karta 2%) */}
+        <Card style={{ padding: '16px 20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase' }}>Bank Komissiyasi (2%)</span>
+            <CreditCard size={16} style={{ color: 'var(--warning)' }} />
+          </div>
+          <div style={{ fontSize: '20px', fontWeight: '800', fontFamily: 'var(--font-display)', color: 'var(--warning)' }}>
+            -{formatPrimary(metrics.totalCommissions)}
+          </div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+            {formatSecondary(metrics.totalCommissions)}
+          </div>
+        </Card>
+
+        {/* 7. Jami Nasiya Xarajatlari (5%) */}
+        <Card style={{ padding: '16px 20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase' }}>Nasiya Xarajati (5%)</span>
+            <Percent size={16} style={{ color: 'var(--warning)' }} />
+          </div>
+          <div style={{ fontSize: '20px', fontWeight: '800', fontFamily: 'var(--font-display)', color: 'var(--warning)' }}>
+            -{formatPrimary(metrics.totalNasiyaFees)}
+          </div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+            {formatSecondary(metrics.totalNasiyaFees)}
+          </div>
+        </Card>
+
+        {/* 8. Ombordagi Mahsulotlar */}
+        <Card style={{ padding: '16px 20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase' }}>Ombordagi Tovarlar</span>
+            <PackageCheck size={16} style={{ color: 'var(--brand-accent)' }} />
+          </div>
+          <div style={{ fontSize: '20px', fontWeight: '800', fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
+            {metrics.stockCount} dona
+          </div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+            Tannarx qiymati: {formatPrimary(metrics.stockValue)}
+          </div>
+        </Card>
+
+        {/* 9. Kam Qolgan Mahsulotlar */}
+        <Card style={{ padding: '16px 20px', borderColor: lowStockProducts.length > 0 ? 'rgba(239, 68, 68, 0.4)' : undefined }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase' }}>Kam Qolgan Tovarlar</span>
+            <AlertTriangle size={16} style={{ color: lowStockProducts.length > 0 ? 'var(--danger)' : 'var(--text-muted)' }} />
+          </div>
+          <div style={{ fontSize: '20px', fontWeight: '800', fontFamily: 'var(--font-display)', color: lowStockProducts.length > 0 ? 'var(--danger)' : 'var(--text-primary)' }}>
+            {lowStockProducts.length} turda
+          </div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+            Zahira soni ≤ 5 dona
+          </div>
+        </Card>
       </div>
 
-      {/* Main Charts & Stock Alerts */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px' }}>
-        <Card title="Savdo va Foyda Dinamikasi">
-          <div style={{ height: '260px' }}>
+      {/* Main Grid: Charts & Top Products */}
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '20px' }}>
+        {/* Sales & Profit Line Chart */}
+        <Card title="Savda va Sof Foyda Dinamikasi">
+          <div style={{ height: '280px' }}>
             <Line
               data={getLineChartData()}
               options={{
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                  legend: {
-                    position: 'top',
-                    labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } }
-                  },
-                  tooltip: {
-                    backgroundColor: '#0f1422',
-                    titleColor: '#fff',
-                    bodyColor: '#94a3b8',
-                    borderColor: 'rgba(255,255,255,0.1)',
-                    borderWidth: 1
-                  }
+                  legend: { position: 'top', labels: { color: '#94a3b8', font: { family: 'Inter' } } }
                 },
                 scales: {
-                  x: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#64748b' } },
-                  y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#64748b' } }
+                  x: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#94a3b8' } },
+                  y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#94a3b8' } }
                 }
               }}
             />
           </div>
         </Card>
 
-        <Card 
-          title={
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <AlertTriangle size={16} style={{ color: 'var(--warning)' }} />
-              Zahira Ogohlantirishlari
-            </span>
-          }
-          style={{ display: 'flex', flexDirection: 'column' }}
-        >
-          <div style={{ overflowY: 'auto', flex: 1, maxHeight: '220px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {lowStockProducts.map(p => (
-              <div 
-                key={p.id} 
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '8px 10px',
-                  background: 'var(--bg-secondary)',
-                  border: '1px solid var(--card-border)',
-                  borderRadius: 'var(--radius-md)'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <img 
-                    src={p.image_url || mockProducts[0].image_url} 
-                    alt={p.name} 
-                    style={{ width: '32px', height: '32px', borderRadius: '6px', objectFit: 'cover' }} 
-                  />
-                  <div>
-                    <div style={{ fontSize: '12.5px', fontWeight: '600', color: 'var(--text-primary)' }}>{p.name}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{formatPrimary(p.selling_price)}</div>
-                  </div>
-                </div>
-                <Badge variant="danger">{p.stock} dona</Badge>
-              </div>
-            ))}
-
-            {lowStockProducts.length === 0 && (
-              <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px 0', fontSize: '12.5px' }}>
-                Zahira kam tovarlar yo'q! ✅
-              </div>
-            )}
+        {/* Top Selling Products Bar Chart */}
+        <Card title="Eng Ko'p Sotilgan Tovarlar (Top 5)">
+          <div style={{ height: '280px' }}>
+            <Bar
+              data={getBarChartData()}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: { display: false }
+                },
+                scales: {
+                  x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } },
+                  y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#94a3b8' } }
+                }
+              }}
+            />
           </div>
         </Card>
       </div>
-
-      {/* Top 5 Selling Products Bar Chart */}
-      <Card title="Eng Ko'p Sotilgan Tovarlar (Top 5)">
-        <div style={{ height: '200px' }}>
-          <Bar
-            data={getBarChartData()}
-            options={{
-              responsive: true,
-              maintainAspectRatio: false,
-              plugins: {
-                legend: { display: false },
-                tooltip: { backgroundColor: '#0f1422' }
-              },
-              scales: {
-                x: { grid: { display: false }, ticks: { color: '#64748b' } },
-                y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#64748b', stepSize: 1 } }
-              }
-            }}
-          />
-        </div>
-      </Card>
     </div>
   );
 }
