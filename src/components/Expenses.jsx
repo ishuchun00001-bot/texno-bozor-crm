@@ -44,7 +44,8 @@ export default function Expenses({
   onRefresh,
   loading = false,
   rates = DEFAULT_RATES,
-  currency = 'USD'
+  currency = 'USD',
+  currentStore = 'all'
 }) {
   const toast = useToast();
   const [searchQuery, setSearchQuery] = useState('');

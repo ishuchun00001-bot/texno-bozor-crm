@@ -362,6 +362,7 @@ function App() {
             loading={loading}
             rates={rates}
             currency={currency}
+            currentStore={currentStore}
           />
         );
       case 'calculator':
