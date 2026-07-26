@@ -107,7 +107,6 @@ export default function Dashboard({
     const filteredExps = (parentExpenses || []).filter(e => e && (e.date || e.created_at) && new Date(e.date || e.created_at) >= cutoffDate);
 
     setFilteredSales(filteredSls);
-    setFilteredExpenses(filteredExps);
 
     // Today's metrics
     let tSalesCount = 0;
