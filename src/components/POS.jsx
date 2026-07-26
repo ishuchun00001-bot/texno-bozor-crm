@@ -376,11 +376,13 @@ export default function POS({ products = [], onRefresh, rates = DEFAULT_RATES, c
                   }}
                 >
                   <div>
-                    <img 
-                      src={p.image_url} 
-                      alt={p.name} 
-                      style={{ width: '100%', height: '90px', objectFit: 'cover', borderRadius: '6px', marginBottom: '8px' }} 
-                    />
+                    <div style={{ width: '100%', height: '90px', borderRadius: '6px', background: 'rgba(0, 0, 0, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', marginBottom: '8px' }}>
+                      <img 
+                        src={p.image_url} 
+                        alt={p.name} 
+                        style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} 
+                      />
+                    </div>
                     <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', lineHeight: 1.3 }}>{p.name}</div>
                     <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>Tannarx: {formatPrimary(p.cost_price)}</div>
                   </div>

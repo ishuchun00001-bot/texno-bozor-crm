@@ -474,11 +474,13 @@ export default function Inventory({
               filteredProducts.map(p => (
                 <tr key={p.id}>
                   <td>
-                    <img 
-                      src={p.image_url || techIcons.phone} 
-                      alt={p.name} 
-                      style={{ width: '38px', height: '38px', borderRadius: '8px', objectFit: 'cover' }} 
-                    />
+                    <div style={{ width: '38px', height: '38px', borderRadius: '8px', background: 'rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px' }}>
+                      <img 
+                        src={p.image_url || techIcons.phone} 
+                        alt={p.name} 
+                        style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} 
+                      />
+                    </div>
                   </td>
                   <td>
                     <div style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{p.name}</div>
