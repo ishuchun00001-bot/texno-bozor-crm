@@ -4,12 +4,7 @@ import {
   Search, 
   Trash2, 
   Check, 
-  CreditCard, 
-  DollarSign, 
-  Percent, 
-  AlertCircle,
-  Plus,
-  Minus
+  CreditCard
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import { formatCurrency, DEFAULT_RATES } from '../utils/currency';
@@ -325,10 +320,6 @@ export default function POS({ products = [], onRefresh, rates = DEFAULT_RATES, c
   };
 
   const formatPrimary = (val) => formatCurrency(val, currency, rates);
-  const formatSecondary = (val) => {
-    const sec = currency === 'USD' ? 'UZS' : 'USD';
-    return formatCurrency(val, sec, rates);
-  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', height: '100%' }}>
@@ -365,7 +356,6 @@ export default function POS({ products = [], onRefresh, rates = DEFAULT_RATES, c
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px', maxHeight: '560px', overflowY: 'auto' }}>
             {filteredProducts.map(p => {
               const isOutOfStock = p.stock <= 0;
-              const rate = rates[currency] || 1;
               const priceDisplay = formatPrimary(p.selling_price || p.cost_price);
 
               return (

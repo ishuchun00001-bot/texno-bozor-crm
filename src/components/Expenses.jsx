@@ -49,7 +49,7 @@ export default function Expenses({
   const toast = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [selectedRecurrence, setSelectedRecurrence] = useState('all');
+  const [selectedRecurrence] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 

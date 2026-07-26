@@ -8,8 +8,7 @@ import {
   Download, 
   Upload, 
   Edit3, 
-  Trash2, 
-  Image as ImageIcon
+  Trash2 
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import { techIcons, mockProducts } from '../utils/mockData';
@@ -21,37 +20,35 @@ import Card from './ui/Card';
 import Input from './ui/Input';
 import Modal from './ui/Modal';
 
-export default function Inventory({ 
-  products = [], 
-  onRefresh, 
-  loading, 
-  rates = DEFAULT_RATES, 
-  currency = 'USD', 
-  currentStore = 'all' 
+export default function Inventory({
+  products = [],
+  onRefresh,
+  loading = false,
+  rates = DEFAULT_RATES,
+  currency = 'USD',
+  currentStore = 'all'
 }) {
   const toast = useToast();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Form states
   const [name, setName] = useState('');
   const [brand, setBrand] = useState('');
   const [model, setModel] = useState('');
   const [sku, setSku] = useState('');
-  const [category, setCategory] = useState('Smartfonlar');
+  const [category, setCategory] = useState('Maishiy texnika');
   const [storeType, setStoreType] = useState('texno');
-  const [stock, setStock] = useState(0);
-  const [costPrice, setCostPrice] = useState(0);
-  const [sellingPrice, setSellingPrice] = useState(0);
-  const [imagePreview, setImagePreview] = useState(null);
+  const [stock, setStock] = useState('');
+  const [costPrice, setCostPrice] = useState('');
+  const [sellingPrice, setSellingPrice] = useState('');
   const [imageFile, setImageFile] = useState(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
+  const [imagePreview, setImagePreview] = useState('');
 
   const openModal = (product = null) => {
-    setErrorMsg('');
     const rate = rates[currency] || 1;
     const defaultStore = currentStore === 'moto' ? 'moto' : 'texno';
 

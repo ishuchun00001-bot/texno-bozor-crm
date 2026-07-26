@@ -2,9 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Calculator, 
   Search, 
-  Printer, 
-  Layers, 
-  PieChart 
+  Printer 
 } from 'lucide-react';
 import { formatCurrency, DEFAULT_RATES } from '../utils/currency';
 import Button from './ui/Button';
