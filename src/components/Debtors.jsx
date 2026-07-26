@@ -102,11 +102,6 @@ export default function Debtors({
           local = [];
         }
 
-        if (local.length === 0 && !localStorage.getItem('local_debtors_seeded')) {
-          local = mockDebtors;
-          localStorage.setItem('local_debtors', JSON.stringify(local));
-          localStorage.setItem('local_debtors_seeded', 'true');
-        }
         setDebtors(local);
       }
     } catch (e) {

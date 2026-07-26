@@ -16,7 +16,6 @@ import CommandPalette from './components/layout/CommandPalette';
 import { ToastProvider, useToast } from './components/Toast';
 
 import { supabase, isSupabaseConfigured } from './supabaseClient';
-import { mockProducts, generateMockSales } from './utils/mockData';
 import { DEFAULT_RATES, fetchExchangeRates } from './utils/currency';
 import { validateSecureSession, clearSecureSession } from './utils/security';
 
@@ -200,6 +199,26 @@ function App() {
     setIsAuthenticated(false);
   };
 
+  const handleClearAllMockData = () => {
+    if (!window.confirm("Haqiqatan ham barcha soxta (demo) mahsulotlar, sotuvlar va statistikani o'chirmoqchisiz? Tizim toza 0 holatiga keladi.")) return;
+
+    localStorage.removeItem('local_products');
+    localStorage.removeItem('local_sales');
+    localStorage.removeItem('local_sale_items');
+    localStorage.removeItem('local_expenses');
+    localStorage.removeItem('local_debtors');
+    localStorage.removeItem('local_inventory_movements');
+    localStorage.removeItem('local_db_seeded');
+    localStorage.removeItem('local_debtors_seeded');
+
+    setProducts([]);
+    setSales([]);
+    setSaleItems([]);
+    setExpenses([]);
+
+    if (toast && toast.success) toast.success("Barcha soxta ma'lumotlar tozalandi! Tizim toza 0 holatga keltirildi. ✅");
+  };
+
   const refreshRates = async () => {
     setRatesLoading(true);
     setRatesStatus('syncing');
@@ -244,19 +263,6 @@ function App() {
       localSales = [];
       localItems = [];
       localExps = [];
-    }
-
-    const hasMoto = Array.isArray(localProds) && localProds.some(p => p && p.store_type === 'moto');
-    if (!hasMoto || localProds.length === 0) {
-      const mockSalesData = generateMockSales();
-      localProds = [...mockProducts];
-      localSales = mockSalesData.sales;
-      localItems = mockSalesData.items;
-
-      localStorage.setItem('local_products', JSON.stringify(localProds));
-      localStorage.setItem('local_sales', JSON.stringify(localSales));
-      localStorage.setItem('local_sale_items', JSON.stringify(localItems));
-      localStorage.setItem('local_db_seeded', 'true');
     }
 
     setProducts(localProds);
@@ -433,6 +439,7 @@ function App() {
           onCurrencyChange={handleCurrencyChange}
           onOpenTelegramModal={() => setIsTelegramModalOpen(true)}
           onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+          onClearMockData={handleClearAllMockData}
           onLogout={handleLogout}
         />
 
