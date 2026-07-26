@@ -103,8 +103,8 @@ export default function Dashboard({
       cutoffDate = new Date(0);
     }
 
-    const filteredSls = parentSales.filter(s => new Date(s.created_at) >= cutoffDate);
-    const filteredExps = parentExpenses.filter(e => new Date(e.date || e.created_at) >= cutoffDate);
+    const filteredSls = (parentSales || []).filter(s => s && s.created_at && new Date(s.created_at) >= cutoffDate);
+    const filteredExps = (parentExpenses || []).filter(e => e && (e.date || e.created_at) && new Date(e.date || e.created_at) >= cutoffDate);
 
     setFilteredSales(filteredSls);
     setFilteredExpenses(filteredExps);
@@ -115,19 +115,23 @@ export default function Dashboard({
     let tProf = 0;
     let tExps = 0;
 
-    parentSales.forEach(s => {
-      const sDateStr = new Date(s.created_at).toISOString().slice(0, 10);
-      if (sDateStr === todayStr) {
-        tSalesCount += 1;
-        tRev += parseFloat(s.total_amount) || 0;
-        tProf += parseFloat(s.profit) || 0;
+    (parentSales || []).forEach(s => {
+      if (s && s.created_at) {
+        const sDateStr = new Date(s.created_at).toISOString().slice(0, 10);
+        if (sDateStr === todayStr) {
+          tSalesCount += 1;
+          tRev += parseFloat(s.total_amount) || 0;
+          tProf += parseFloat(s.profit) || 0;
+        }
       }
     });
 
-    parentExpenses.forEach(e => {
-      const eDateStr = (e.date || e.created_at || '').slice(0, 10);
-      if (eDateStr === todayStr) {
-        tExps += parseFloat(e.amount) || 0;
+    (parentExpenses || []).forEach(e => {
+      if (e) {
+        const eDateStr = (e.date || e.created_at || '').slice(0, 10);
+        if (eDateStr === todayStr) {
+          tExps += parseFloat(e.amount) || 0;
+        }
       }
     });
 

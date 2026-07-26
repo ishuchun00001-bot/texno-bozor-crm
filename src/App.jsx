@@ -62,20 +62,42 @@ class ErrorBoundary extends React.Component {
           <h2 style={{ fontSize: '18px', marginBottom: '12px', color: 'var(--danger, #ef4444)' }}>
             Tizim keshida vaqtinchalik ziddiyat aniqlandi
           </h2>
-          <p style={{ color: '#94a3b8', maxWidth: '460px', marginBottom: '24px', fontSize: '13.5px', lineHeight: '1.6' }}>
+          <p style={{ color: '#94a3b8', maxWidth: '460px', marginBottom: '16px', fontSize: '13.5px', lineHeight: '1.6' }}>
             Do'konlar keshi va ma'lumotlarni qayta tiklash uchun quyidagi tugmani bosing:
           </p>
+          {this.state.error && (
+            <div style={{
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              borderRadius: '8px',
+              padding: '12px 16px',
+              maxWidth: '600px',
+              width: '100%',
+              marginBottom: '20px',
+              color: '#f87171',
+              fontSize: '12px',
+              fontFamily: 'monospace',
+              textAlign: 'left',
+              overflowX: 'auto'
+            }}>
+              <strong>Xatolik ma'lumoti:</strong>
+              <pre style={{ marginTop: '6px', whiteSpace: 'pre-wrap', margin: 0 }}>
+                {this.state.error.toString()}
+              </pre>
+            </div>
+          )}
           <button
             onClick={this.handleReset}
             style={{
-              padding: '10px 24px',
+              padding: '12px 28px',
               borderRadius: '8px',
               border: 'none',
               background: 'var(--brand-accent, #6366f1)',
               color: '#ffffff',
               fontWeight: '700',
               fontSize: '14px',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              boxShadow: '0 4px 14px rgba(99, 102, 241, 0.4)'
             }}
           >
             🔄 Tizimni Qayta Tiklash
