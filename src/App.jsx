@@ -199,26 +199,6 @@ function App() {
     setIsAuthenticated(false);
   };
 
-  const handleClearAllMockData = () => {
-    if (!window.confirm("Haqiqatan ham barcha soxta (demo) mahsulotlar, sotuvlar va statistikani o'chirmoqchisiz? Tizim toza 0 holatiga keladi.")) return;
-
-    localStorage.removeItem('local_products');
-    localStorage.removeItem('local_sales');
-    localStorage.removeItem('local_sale_items');
-    localStorage.removeItem('local_expenses');
-    localStorage.removeItem('local_debtors');
-    localStorage.removeItem('local_inventory_movements');
-    localStorage.removeItem('local_db_seeded');
-    localStorage.removeItem('local_debtors_seeded');
-
-    setProducts([]);
-    setSales([]);
-    setSaleItems([]);
-    setExpenses([]);
-
-    if (toast && toast.success) toast.success("Barcha soxta ma'lumotlar tozalandi! Tizim toza 0 holatga keltirildi. ✅");
-  };
-
   const refreshRates = async () => {
     setRatesLoading(true);
     setRatesStatus('syncing');
@@ -439,7 +419,6 @@ function App() {
           onCurrencyChange={handleCurrencyChange}
           onOpenTelegramModal={() => setIsTelegramModalOpen(true)}
           onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
-          onClearMockData={handleClearAllMockData}
           onLogout={handleLogout}
         />
 

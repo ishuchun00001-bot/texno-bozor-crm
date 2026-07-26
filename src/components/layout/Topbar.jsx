@@ -27,7 +27,6 @@ export default function Topbar({
   onCurrencyChange,
   onOpenTelegramModal,
   onOpenCommandPalette,
-  onClearMockData,
   onLogout,
   userRole = "Texno Bozor"
 }) {
@@ -317,33 +316,6 @@ export default function Topbar({
                 <div style={{ fontSize: '12.5px', fontWeight: '700', color: 'var(--text-primary)' }}>Admin</div>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{userRole}</div>
               </div>
-              {onClearMockData && (
-                <button
-                  onClick={() => {
-                    setIsProfileOpen(false);
-                    onClearMockData();
-                  }}
-                  style={{
-                    width: '100%',
-                    padding: '6px 8px',
-                    borderRadius: 'var(--radius-sm)',
-                    border: 'none',
-                    background: 'transparent',
-                    color: 'var(--warning)',
-                    fontSize: '11.5px',
-                    fontWeight: '600',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    marginBottom: '4px'
-                  }}
-                >
-                  🧹 Demo Ma'lumotlarni O'chirish
-                </button>
-              )}
-
               <button
                 onClick={onLogout}
                 style={{
