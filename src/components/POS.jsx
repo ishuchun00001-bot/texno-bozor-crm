@@ -102,9 +102,9 @@ export default function POS({ products = [], onRefresh, rates = DEFAULT_RATES, c
     }
   };
 
-  const updateItemPrice = (id, newPrice) => {
-    const p = Math.max(0, parseFloat(newPrice) || 0);
-    setCart(cart.map(item => item.id === id ? { ...item, custom_selling_price: p } : item));
+  const updateItemDiscount = (id, newDiscount) => {
+    const d = Math.max(0, parseFloat(newDiscount) || 0);
+    setCart(cart.map(item => item.id === id ? { ...item, discount: d } : item));
   };
 
   const clearCart = () => {
@@ -116,18 +116,24 @@ export default function POS({ products = [], onRefresh, rates = DEFAULT_RATES, c
     const rate = rates[currency] || 1;
     let subtotal = 0;
     let totalCost = 0;
+    let totalDiscount = 0;
     
     cart.forEach(item => {
       const priceUsd = (parseFloat(item.custom_selling_price) || 0) / rate;
+      const discountUsd = (parseFloat(item.discount) || 0) / rate;
       const costUsd = parseFloat(item.cost_price) || 0;
 
-      subtotal += priceUsd * item.quantity;
+      const netPriceUsd = Math.max(0, priceUsd - discountUsd);
+
+      subtotal += netPriceUsd * item.quantity;
       totalCost += costUsd * item.quantity;
+      totalDiscount += discountUsd * item.quantity;
     });
 
     return {
       subtotalUsd: subtotal,
       totalCostUsd: totalCost,
+      totalDiscountUsd: totalDiscount,
       profitUsd: subtotal - totalCost
     };
   };
@@ -427,24 +433,36 @@ export default function POS({ products = [], onRefresh, rates = DEFAULT_RATES, c
                       </button>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', alignItems: 'center' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px', alignItems: 'center' }}>
                       {/* Sotuv narxini tahrirlash */}
                       <div>
-                        <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', display: 'block' }}>Sotish narxi ({currency}):</span>
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block' }}>Narx ({currency}):</span>
                         <input
                           type="number"
                           className="form-control"
                           value={item.custom_selling_price}
                           onChange={(e) => updateItemPrice(item.id, e.target.value)}
-                          style={{ padding: '4px 6px', fontSize: '12px', height: '28px' }}
+                          style={{ padding: '3px 4px', fontSize: '11px', height: '26px' }}
+                        />
+                      </div>
+
+                      {/* Chegirma tahrirlash */}
+                      <div>
+                        <span style={{ fontSize: '10px', color: 'var(--warning)', display: 'block' }}>Chegirma ({currency}):</span>
+                        <input
+                          type="number"
+                          className="form-control"
+                          value={item.discount || 0}
+                          onChange={(e) => updateItemDiscount(item.id, e.target.value)}
+                          style={{ padding: '3px 4px', fontSize: '11px', height: '26px' }}
                         />
                       </div>
 
                       {/* Quantity controls */}
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
-                        <button onClick={() => updateQuantity(item.id, -1)} style={{ width: '24px', height: '24px', borderRadius: '4px', border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: '#fff', cursor: 'pointer' }}>-</button>
-                        <span style={{ fontSize: '13px', fontWeight: '700', width: '20px', textAlign: 'center' }}>{item.quantity}</span>
-                        <button onClick={() => updateQuantity(item.id, 1)} style={{ width: '24px', height: '24px', borderRadius: '4px', border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: '#fff', cursor: 'pointer' }}>+</button>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
+                        <button onClick={() => updateQuantity(item.id, -1)} style={{ width: '22px', height: '22px', borderRadius: '4px', border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: '#fff', cursor: 'pointer' }}>-</button>
+                        <span style={{ fontSize: '12px', fontWeight: '700', width: '18px', textAlign: 'center' }}>{item.quantity}</span>
+                        <button onClick={() => updateQuantity(item.id, 1)} style={{ width: '22px', height: '22px', borderRadius: '4px', border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: '#fff', cursor: 'pointer' }}>+</button>
                       </div>
                     </div>
                   </div>
