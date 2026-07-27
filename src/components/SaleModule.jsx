@@ -252,8 +252,13 @@ export default function SaleModule({
         created_at: nowIso
       };
 
-      if (isSupabaseConfigured()) {
-        // 1. Sales jadvaliga saqlash
+      if (!isSupabaseConfigured()) {
+        toast.error("Supabase bilan ulanish mavjud emas. Sotuv amalga oshirilmadi.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // 1. Sales jadvaliga saqlash
         const { data: saleData, error: saleErr } = await supabase
           .from('sales')
           .insert([salePayload])
@@ -287,7 +292,6 @@ export default function SaleModule({
             created_at: nowIso
           }]);
         }
-      }
 
       // Telegram Bot Bildirishnomasi
       const savedTg = localStorage.getItem('telegram_bot_settings');

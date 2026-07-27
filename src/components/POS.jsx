@@ -226,10 +226,13 @@ export default function POS({ products = [], onRefresh, rates = DEFAULT_RATES, c
         created_at: new Date().toISOString()
       };
 
-      let newSaleId = `sale-${Date.now()}`;
+      if (!isSupabaseConfigured()) {
+        toast.error("Supabase bilan ulanish mavjud emas. Sotuv amalga oshirilmadi.");
+        setIsSubmitting(false);
+        return;
+      }
 
-      if (isSupabaseConfigured()) {
-        const { data: saleData, error: saleError } = await supabase
+      const { data: saleData, error: saleError } = await supabase
           .from('sales')
           .insert([salePayload])
           .select();
@@ -255,7 +258,6 @@ export default function POS({ products = [], onRefresh, rates = DEFAULT_RATES, c
           const updatedStock = Math.max(0, item.stock - item.quantity);
           await supabase.from('products').update({ stock: updatedStock }).eq('id', item.id);
         }
-      }
 
       // Telegram Bot Notification
       const savedTg = localStorage.getItem('telegram_bot_settings');

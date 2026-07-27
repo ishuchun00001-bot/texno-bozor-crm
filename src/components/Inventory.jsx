@@ -160,24 +160,32 @@ export default function Inventory({
         image_url: finalImageUrl || ''
       };
 
-      if (isSupabaseConfigured()) {
-        if (editingProduct) {
-          const { error } = await supabase
-            .from('products')
-            .update(productData)
-            .eq('id', editingProduct.id);
-          if (error) {
-            console.error('Supabase Product UPDATE Error:', error);
-            throw error;
-          }
-        } else {
-          const { error } = await supabase
-            .from('products')
-            .insert([productData]);
-          if (error) {
-            console.error('Supabase Product INSERT Error:', error);
-            throw error;
-          }
+      if (!isSupabaseConfigured()) {
+        toast.error("Supabase bilan ulanish mavjud emas. Mahsulot saqlanmadi.");
+        setIsSaving(false);
+        return;
+      }
+
+      if (editingProduct) {
+        const { error } = await supabase
+          .from('products')
+          .update(productData)
+          .eq('id', editingProduct.id);
+        if (error) {
+          console.error('Supabase Product UPDATE Error:', error);
+          toast.error("Supabase xatoligi: " + error.message);
+          setIsSaving(false);
+          return;
+        }
+      } else {
+        const { error } = await supabase
+          .from('products')
+          .insert([productData]);
+        if (error) {
+          console.error('Supabase Product INSERT Error:', error);
+          toast.error("Supabase xatoligi: " + error.message);
+          setIsSaving(false);
+          return;
         }
       }
 
@@ -195,16 +203,23 @@ export default function Inventory({
   const handleDelete = async (id) => {
     if (!window.confirm("Haqiqatan ham ushbu mahsulotni o'chirmoqchisiz?")) return;
 
+    if (!isSupabaseConfigured()) {
+      toast.error("Supabase bilan ulanish mavjud emas. Mahsulot o'chirilmadi.");
+      return;
+    }
+
     try {
-      if (isSupabaseConfigured()) {
-        const { error } = await supabase
-          .from('products')
-          .delete()
-          .eq('id', id);
-        if (error) throw error;
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', id);
+      if (error) {
+        console.error('Supabase Product DELETE Error:', error);
+        toast.error("O'chirishda Supabase xatoligi: " + error.message);
+        return;
       }
-      toast.success('Mahsulot muvaffaqiyatli o\'chirildi.');
-      onRefresh();
+      toast.success('Mahsulot muvaffaqiyatli o\'chirildi. ✅');
+      if (onRefresh) await onRefresh();
     } catch (err) {
       console.error(err);
       toast.error(err.message || "O'chirishda xatolik yuz berdi.");
@@ -308,13 +323,20 @@ export default function Inventory({
           };
         });
 
-        if (isSupabaseConfigured()) {
-          const { error } = await supabase.from('products').insert(importedItems);
-          if (error) throw error;
+        if (!isSupabaseConfigured()) {
+          toast.error("Supabase bilan ulanish mavjud emas. Import saqlanmadi.");
+          return;
+        }
+
+        const { error } = await supabase.from('products').insert(importedItems);
+        if (error) {
+          console.error("Excel Import Supabase Error:", error);
+          toast.error("Importda Supabase xatoligi: " + error.message);
+          return;
         }
 
         toast.success(`${importedItems.length} ta tovar muvaffaqiyatli import qilindi! 🎉`);
-        onRefresh();
+        if (onRefresh) await onRefresh();
       } catch (err) {
         console.error(err);
         toast.error("Excel faylini o'qishda xatolik yuz berdi.");

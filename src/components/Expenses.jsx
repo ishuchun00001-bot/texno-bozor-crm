@@ -112,6 +112,9 @@ export default function Expenses({
     if (!title || !amount) {
       toast.warning('Iltimos, xarajat nomi va summasini kiriting!');
       return;
+    }    if (!isSupabaseConfigured()) {
+      toast.error("Supabase bilan ulanish mavjud emas. Xarajat saqlanmadi.");
+      return;
     }
 
     setIsSaving(true);
@@ -122,24 +125,24 @@ export default function Expenses({
       title,
       category,
       amount: amountUsd,
-      date,
+      notes,
       recurrence,
-      status: status || 'paid',
-      store_type: storeType,
-      notes: notes || '',
-      created_by: createdBy || 'Admin',
-      created_at: new Date(date).toISOString()
+      status: 'paid',
+      created_at: new Date().toISOString()
     };
 
     try {
-      if (isSupabaseConfigured()) {
-        const { error } = await supabase.from('expenses').insert([expenseData]);
-        if (error) throw error;
+      const { error } = await supabase.from('expenses').insert([expenseData]);
+      if (error) {
+        console.error('Supabase Expense INSERT Error:', error);
+        toast.error("Supabase xatoligi: " + error.message);
+        setIsSaving(false);
+        return;
       }
 
       toast.success('Xarajat muvaffaqiyatli saqlandi! ✅');
       setIsModalOpen(false);
-      onRefresh();
+      if (onRefresh) await onRefresh();
     } catch (err) {
       console.error(err);
       toast.error('Xarajatni saqlashda xatolik: ' + err.message);
@@ -151,13 +154,20 @@ export default function Expenses({
   const handleDeleteExpense = async (id) => {
     if (!window.confirm("Haqiqatan ham ushbu xarajatni o'chirmoqchisiz?")) return;
 
+    if (!isSupabaseConfigured()) {
+      toast.error("Supabase bilan ulanish mavjud emas. Xarajat o'chirilmadi.");
+      return;
+    }
+
     try {
-      if (isSupabaseConfigured()) {
-        const { error } = await supabase.from('expenses').delete().eq('id', id);
-        if (error) throw error;
+      const { error } = await supabase.from('expenses').delete().eq('id', id);
+      if (error) {
+        console.error('Supabase Expense DELETE Error:', error);
+        toast.error("O'chirishda Supabase xatoligi: " + error.message);
+        return;
       }
-      toast.success('Xarajat o\'chirildi.');
-      onRefresh();
+      toast.success('Xarajat o\'chirildi. ✅');
+      if (onRefresh) await onRefresh();
     } catch (err) {
       toast.error('O\'chirishda xatolik: ' + err.message);
     }

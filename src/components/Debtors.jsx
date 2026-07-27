@@ -90,6 +90,11 @@ export default function Debtors({
       return;
     }
 
+    if (!isSupabaseConfigured()) {
+      toast.error("Supabase bilan ulanish mavjud emas. Nasiya saqlanmadi.");
+      return;
+    }
+
     setIsSaving(true);
     const rate = rates[currency] || 1;
     const totalUsd = (parseFloat(totalAmount) || 0) / rate;
@@ -120,9 +125,12 @@ export default function Debtors({
     };
 
     try {
-      if (isSupabaseConfigured()) {
-        const { error } = await supabase.from('debtors').insert([newDebtor]);
-        if (error) throw error;
+      const { error } = await supabase.from('debtors').insert([newDebtor]);
+      if (error) {
+        console.error('Supabase Debtor INSERT Error:', error);
+        toast.error("Supabase xatoligi: " + error.message);
+        setIsSaving(false);
+        return;
       }
 
       const tgMsg =
@@ -159,6 +167,11 @@ export default function Debtors({
     e.preventDefault();
     if (!selectedDebtor || !payAmount) return;
 
+    if (!isSupabaseConfigured()) {
+      toast.error("Supabase bilan ulanish mavjud emas. To'lov qabul qilinmadi.");
+      return;
+    }
+
     const rate = rates[currency] || 1;
     const payUsdRaw = (parseFloat(payAmount) || 0) / rate;
     const payUsd = Math.min(selectedDebtor.remaining_amount, payUsdRaw);
@@ -166,16 +179,18 @@ export default function Debtors({
     const newStatus = newRemaining <= 0 ? 'completed' : 'active';
 
     try {
-      if (isSupabaseConfigured()) {
-        const { error } = await supabase
-          .from('debtors')
-          .update({
-            remaining_amount: newRemaining,
-            status: newStatus,
-            last_payment_date: new Date().toISOString()
-          })
-          .eq('id', selectedDebtor.id);
-        if (error) throw error;
+      const { error } = await supabase
+        .from('debtors')
+        .update({
+          remaining_amount: newRemaining,
+          status: newStatus,
+          last_payment_date: new Date().toISOString()
+        })
+        .eq('id', selectedDebtor.id);
+      if (error) {
+        console.error('Supabase Debtor Payment Error:', error);
+        toast.error("To'lovda Supabase xatoligi: " + error.message);
+        return;
       }
 
       const tgMsg =
@@ -198,12 +213,20 @@ export default function Debtors({
 
   const handleDeleteDebtor = async (id) => {
     if (!window.confirm("Haqiqatan ham ushbu nasiya yozuvini o'chirmoqchisiz?")) return;
+
+    if (!isSupabaseConfigured()) {
+      toast.error("Supabase bilan ulanish mavjud emas. Nasiya o'chirilmadi.");
+      return;
+    }
+
     try {
-      if (isSupabaseConfigured()) {
-        const { error } = await supabase.from('debtors').delete().eq('id', id);
-        if (error) throw error;
+      const { error } = await supabase.from('debtors').delete().eq('id', id);
+      if (error) {
+        console.error('Supabase Debtor DELETE Error:', error);
+        toast.error("O'chirishda Supabase xatoligi: " + error.message);
+        return;
       }
-      toast.success("Nasiya yozuvi o'chirildi.");
+      toast.success("Nasiya yozuvi o'chirildi. ✅");
       fetchDebtors();
     } catch (err) {
       toast.error("O'chirishda xatolik: " + err.message);
