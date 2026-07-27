@@ -106,18 +106,27 @@ export default function Login({ onLoginSuccess }) {
         });
 
         if (nextAttempts >= MAX_ATTEMPTS) {
-          const blockUntil = Date.now() + LOCKOUT_TIME;
+          const lockoutMultiplier = Math.floor(nextAttempts / MAX_ATTEMPTS);
+          const blockUntil = Date.now() + (LOCKOUT_TIME * lockoutMultiplier);
           setLockoutTime(blockUntil);
           localStorage.setItem('lockout_until', blockUntil.toString());
           setRemainingTime(Math.ceil((blockUntil - Date.now()) / 1000));
-          setError(`Brute-force xavfi! Ketma-ket ${MAX_ATTEMPTS} marta noto'g'ri parol kiritildi. Tizim vaqtinchalik bloklandi.`);
+          
+          await logAuditEvent({
+            user: cleanUsername || 'Noma\'lum',
+            role: 'guest',
+            action: 'ACCOUNT_LOCKED',
+            details: `Brute-force xavfi tufayli tizim ${lockoutMultiplier * 5} daqiqaga bloklandi.`
+          });
+
+          setError(`Xavfsizlik ogohlantirishi! Bir nechta noto'g'ri urinish tufayli vaqtinchalik cheklov o'rnatildi.`);
         } else {
-          setError(`Noto'g'ri login va parol! Qolgan urinishlar: ${MAX_ATTEMPTS - nextAttempts}`);
+          setError("Login yoki parol noto'g'ri.");
         }
       }
     } catch (err) {
       console.error(err);
-      setError("Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.");
+      setError("Login yoki parol noto'g'ri.");
     }
   };
 
@@ -211,7 +220,7 @@ export default function Login({ onLoginSuccess }) {
               <input
                 type="text"
                 className="form-control"
-                placeholder="Login... (Masalan: Texno555 yoki admin)"
+                placeholder="Login"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 disabled={Boolean(lockoutTime)}
@@ -229,7 +238,7 @@ export default function Login({ onLoginSuccess }) {
               <input
                 type={showPassword ? 'text' : 'password'}
                 className="form-control"
-                placeholder="Parolni kiriting..."
+                placeholder="Parol"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={Boolean(lockoutTime)}
@@ -265,10 +274,8 @@ export default function Login({ onLoginSuccess }) {
           </Button>
         </form>
 
-        <div style={{ marginTop: '20px', padding: '10px', borderRadius: '8px', background: 'var(--bg-secondary)', border: '1px solid var(--card-border)', fontSize: '11px', color: 'var(--text-muted)' }}>
-          <div>💡 <strong>Dastlabki Test Hisoblar:</strong></div>
-          <div style={{ marginTop: '4px' }}>• Admin: <code>admin</code> / <code>Texnoilhom123</code></div>
-          <div>• Sotuvchi (Xodim): <code>Texno555</code> / <code>Texno555</code></div>
+        <div style={{ textAlign: 'center', marginTop: '24px', fontSize: '11px', color: 'var(--text-muted)' }}>
+          Enterprise 256-bit SSL & Supabase Auth Secured 🔒
         </div>
       </Card>
     </div>
