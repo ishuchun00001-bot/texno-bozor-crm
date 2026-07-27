@@ -99,7 +99,7 @@ export default function Inventory({
   };
 
   const uploadImage = async () => {
-    if (!imageFile) return imagePreview;
+    if (!imageFile) return imagePreview || '';
 
     if (isSupabaseConfigured()) {
       try {
@@ -110,46 +110,54 @@ export default function Inventory({
           .from('product-images')
           .upload(fileName, imageFile, { cacheControl: '3600', upsert: false });
 
-        if (error) throw error;
+        if (!error) {
+          const { data: { publicUrl } } = supabase.storage
+            .from('product-images')
+            .getPublicUrl(fileName);
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('product-images')
-          .getPublicUrl(fileName);
-
-        return publicUrl;
+          if (publicUrl) return publicUrl;
+        }
       } catch (err) {
-        console.error('Rasm yuklashda xatolik:', err.message);
+        console.warn('Supabase storage upload fallback:', err.message);
       }
     }
 
     return new Promise((resolve) => {
       const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
+      reader.onloadend = () => resolve(reader.result || imagePreview || '');
       reader.readAsDataURL(imageFile);
     });
   };
 
   const handleSave = async (e) => {
     e.preventDefault();
+    if (!name.trim()) {
+      toast.warning("Iltimos, mahsulot nomini kiriting!");
+      return;
+    }
     setIsSaving(true);
+
     const rate = rates[currency] || 1;
-    const costPriceUsd = (parseFloat(costPrice) || 0) / rate;
-    const sellingPriceUsd = parseFloat(sellingPrice) > 0 ? (parseFloat(sellingPrice) / rate) : costPriceUsd;
+    const rawCost = typeof costPrice === 'string' ? parseFloat(costPrice.replace(/\s+/g, '')) || 0 : (costPrice || 0);
+    const rawSelling = typeof sellingPrice === 'string' ? parseFloat(sellingPrice.replace(/\s+/g, '')) || 0 : (sellingPrice || 0);
     
+    const costPriceUsd = rawCost / rate;
+    const sellingPriceUsd = rawSelling > 0 ? (rawSelling / rate) : costPriceUsd;
+
     try {
       const finalImageUrl = await uploadImage();
-      
+
       const productData = {
-        name,
-        brand: brand || name.split(' ')[0] || 'Brendsiz',
-        model: model || name || '',
-        sku: sku || `SKU-${Date.now().toString().substring(8)}`,
-        category,
-        store_type: storeType,
-        stock: parseInt(stock, 10) || 0,
+        name: name.trim(),
+        brand: brand.trim() || name.trim().split(' ')[0] || 'Brendsiz',
+        model: model.trim() || '',
+        sku: sku.trim() || `SKU-${Date.now().toString().substring(8)}`,
+        category: category || 'Umumiy',
+        store_type: storeType || 'texno',
+        stock: Math.max(0, parseInt(stock, 10) || 0),
         cost_price: costPriceUsd,
         selling_price: sellingPriceUsd,
-        image_url: finalImageUrl
+        image_url: finalImageUrl || ''
       };
 
       if (isSupabaseConfigured()) {
@@ -158,21 +166,27 @@ export default function Inventory({
             .from('products')
             .update(productData)
             .eq('id', editingProduct.id);
-          if (error) throw error;
+          if (error) {
+            console.error('Supabase Product UPDATE Error:', error);
+            throw error;
+          }
         } else {
           const { error } = await supabase
             .from('products')
             .insert([productData]);
-          if (error) throw error;
+          if (error) {
+            console.error('Supabase Product INSERT Error:', error);
+            throw error;
+          }
         }
       }
 
       closeModal();
       toast.success(editingProduct ? 'Mahsulot muvaffaqiyatli yangilandi! ✅' : 'Yangi mahsulot qo\'shildi! ✅');
-      onRefresh();
+      if (onRefresh) await onRefresh();
     } catch (err) {
-      console.error(err);
-      setErrorMsg(err.message || 'Saqlashda xatolik yuz berdi.');
+      console.error('Product save error:', err);
+      toast.error('Mahsulotni saqlashda xatolik: ' + (err.message || 'Noma\'lum xatolik'));
     } finally {
       setIsSaving(false);
     }
