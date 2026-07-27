@@ -1,3 +1,5 @@
+import React, { useState, useEffect } from 'react';
+import { Search, X, Package, Users, Receipt, Calculator, BarChart3, ArrowRight } from 'lucide-react';
 import { hasPermission } from '../../utils/rbac';
 
 export default function CommandPalette({
