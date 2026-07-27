@@ -48,42 +48,7 @@ export default function Debtors({
   // To'lov qilish modal formulasi
   const [payAmount, setPayAmount] = useState(0);
 
-  const mockDebtors = [
-    {
-      id: 'deb-1',
-      client_name: "Alisher Ro'ziyev",
-      phone: "+998 90 123 45 67",
-      product_name: "iPhone 15 Pro Max 256GB",
-      store_type: 'texno',
-      total_amount: 1350,
-      down_payment: 350,
-      remaining_amount: 1000,
-      monthly_payment: 100,
-      months_count: 10,
-      due_day: 15,
-      status: 'active',
-      created_at: new Date(Date.now() - 45 * 86400000).toISOString(),
-      last_payment_date: new Date(Date.now() - 15 * 86400000).toISOString(),
-      notes: "Pasport nusxasi bor"
-    },
-    {
-      id: 'deb-2',
-      client_name: "Sardor Karimov",
-      phone: "+998 93 987 65 43",
-      product_name: "Skuter RX 150cc Sport",
-      store_type: 'moto',
-      total_amount: 1250,
-      down_payment: 250,
-      remaining_amount: 1000,
-      monthly_payment: 125,
-      months_count: 8,
-      due_day: 5,
-      status: 'overdue',
-      created_at: new Date(Date.now() - 60 * 86400000).toISOString(),
-      last_payment_date: new Date(Date.now() - 35 * 86400000).toISOString(),
-      notes: "Kaska qo'shib berilgan"
-    }
-  ];
+
 
   const fetchDebtors = async () => {
     setLoading(true);
@@ -92,23 +57,10 @@ export default function Debtors({
         const { data, error } = await supabase.from('debtors').select('*').order('created_at', { ascending: false });
         if (error) throw error;
         setDebtors(data || []);
-      } else {
-        let local = [];
-        try {
-          const parsed = JSON.parse(localStorage.getItem('local_debtors') || '[]');
-          local = Array.isArray(parsed) ? parsed : [];
-        } catch (e) {
-          console.error(e);
-          local = [];
-        }
-
-        setDebtors(local);
       }
     } catch (e) {
-      console.warn("Debtors loading fallback:", e);
-      let local = JSON.parse(localStorage.getItem('local_debtors') || '[]');
-      if (local.length === 0) local = mockDebtors;
-      setDebtors(local);
+      console.warn("Debtors loading error:", e);
+      setDebtors([]);
     } finally {
       setLoading(false);
     }
@@ -143,13 +95,17 @@ export default function Debtors({
     const totalUsd = (parseFloat(totalAmount) || 0) / rate;
     const downUsd = (parseFloat(downPayment) || 0) / rate;
     const remainingUsd = Math.max(0, totalUsd - downUsd);
-    const mCount = parseInt(monthsCount, 10) || 1;
-    const monthlyUsd = Math.round(remainingUsd / mCount);
+    const mCount = parseInt(monthsCount, 10) || 12;
+
+    const monthlyRate = 0.26 / 12;
+    const monthlyUsd = remainingUsd > 0 && mCount > 0
+      ? (remainingUsd * monthlyRate * Math.pow(1 + monthlyRate, mCount)) / (Math.pow(1 + monthlyRate, mCount) - 1)
+      : 0;
 
     const newDebtor = {
       client_name: clientName,
-      phone: phone || '—',
-      product_name: productName || 'Noma\'lum tovar',
+      phone: phone || '',
+      product_name: productName || '—',
       store_type: storeType,
       total_amount: totalUsd,
       down_payment: downUsd,
@@ -167,10 +123,6 @@ export default function Debtors({
       if (isSupabaseConfigured()) {
         const { error } = await supabase.from('debtors').insert([newDebtor]);
         if (error) throw error;
-      } else {
-        let local = JSON.parse(localStorage.getItem('local_debtors') || '[]');
-        local.unshift({ id: `deb-${Date.now()}`, ...newDebtor });
-        localStorage.setItem('local_debtors', JSON.stringify(local));
       }
 
       const tgMsg =
@@ -224,15 +176,6 @@ export default function Debtors({
           })
           .eq('id', selectedDebtor.id);
         if (error) throw error;
-      } else {
-        let local = JSON.parse(localStorage.getItem('local_debtors') || '[]');
-        local = local.map(d => d.id === selectedDebtor.id ? {
-          ...d,
-          remaining_amount: newRemaining,
-          status: newStatus,
-          last_payment_date: new Date().toISOString()
-        } : d);
-        localStorage.setItem('local_debtors', JSON.stringify(local));
       }
 
       const tgMsg =
@@ -259,10 +202,6 @@ export default function Debtors({
       if (isSupabaseConfigured()) {
         const { error } = await supabase.from('debtors').delete().eq('id', id);
         if (error) throw error;
-      } else {
-        let local = JSON.parse(localStorage.getItem('local_debtors') || '[]');
-        local = local.filter(d => d.id !== id);
-        localStorage.setItem('local_debtors', JSON.stringify(local));
       }
       toast.success("Nasiya yozuvi o'chirildi.");
       fetchDebtors();

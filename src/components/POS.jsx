@@ -255,30 +255,6 @@ export default function POS({ products = [], onRefresh, rates = DEFAULT_RATES, c
           const updatedStock = Math.max(0, item.stock - item.quantity);
           await supabase.from('products').update({ stock: updatedStock }).eq('id', item.id);
         }
-      } else {
-        let localSales = JSON.parse(localStorage.getItem('local_sales') || '[]');
-        let localItems = JSON.parse(localStorage.getItem('local_sale_items') || '[]');
-        let localProds = JSON.parse(localStorage.getItem('local_products') || '[]');
-
-        localSales.unshift({ id: newSaleId, ...salePayload });
-
-        cart.forEach((item, index) => {
-          localItems.push({
-            id: `item-${newSaleId}-${index}`,
-            sale_id: newSaleId,
-            product_id: item.id,
-            quantity: item.quantity,
-            cost_price: item.cost_price,
-            selling_price: (parseFloat(item.custom_selling_price) || 0) / rate,
-            created_at: salePayload.created_at
-          });
-
-          localProds = localProds.map(p => p.id === item.id ? { ...p, stock: Math.max(0, p.stock - item.quantity) } : p);
-        });
-
-        localStorage.setItem('local_sales', JSON.stringify(localSales));
-        localStorage.setItem('local_sale_items', JSON.stringify(localItems));
-        localStorage.setItem('local_products', JSON.stringify(localProds));
       }
 
       // Telegram Bot Notification

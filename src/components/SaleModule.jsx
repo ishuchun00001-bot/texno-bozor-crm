@@ -287,42 +287,6 @@ export default function SaleModule({
             created_at: nowIso
           }]);
         }
-      } else {
-        // LocalStorage offline rejim
-        let localSales = JSON.parse(localStorage.getItem('local_sales') || '[]');
-        let localItems = JSON.parse(localStorage.getItem('local_sale_items') || '[]');
-        let localProds = JSON.parse(localStorage.getItem('local_products') || '[]');
-        let localMovements = JSON.parse(localStorage.getItem('local_inventory_movements') || '[]');
-
-        localSales.unshift({ id: newSaleId, ...salePayload });
-
-        cart.forEach((item, idx) => {
-          localItems.push({
-            id: `item-${newSaleId}-${idx}`,
-            sale_id: newSaleId,
-            product_id: item.id,
-            quantity: item.quantity,
-            cost_price: item.cost_price,
-            selling_price: (parseFloat(item.selling_price_usd) || 0) - ((parseFloat(item.discount_display) || 0) / rate),
-            created_at: nowIso
-          });
-
-          localProds = localProds.map(p => p.id === item.id ? { ...p, stock: Math.max(0, p.stock - item.quantity) } : p);
-
-          localMovements.push({
-            id: `mov-${Date.now()}-${idx}`,
-            product_id: item.id,
-            movement_type: 'sale',
-            quantity: item.quantity,
-            note: `Sotuv ID: #${newSaleId.substring(0, 8)}`,
-            created_at: nowIso
-          });
-        });
-
-        localStorage.setItem('local_sales', JSON.stringify(localSales));
-        localStorage.setItem('local_sale_items', JSON.stringify(localItems));
-        localStorage.setItem('local_products', JSON.stringify(localProds));
-        localStorage.setItem('local_inventory_movements', JSON.stringify(localMovements));
       }
 
       // Telegram Bot Bildirishnomasi

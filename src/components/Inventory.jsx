@@ -11,7 +11,7 @@ import {
   Trash2 
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
-import { techIcons, mockProducts } from '../utils/mockData';
+import { techIcons } from '../utils/mockData';
 import { formatCurrency, DEFAULT_RATES } from '../utils/currency';
 import { useToast } from './Toast';
 import Button from './ui/Button';
@@ -165,23 +165,6 @@ export default function Inventory({
             .insert([productData]);
           if (error) throw error;
         }
-      } else {
-        let localProds = JSON.parse(localStorage.getItem('local_products') || '[]');
-        if (localProds.length === 0 && !localStorage.getItem('local_db_seeded')) {
-          localProds = [...mockProducts];
-        }
-
-        if (editingProduct) {
-          localProds = localProds.map(p => p.id === editingProduct.id ? { ...p, ...productData } : p);
-        } else {
-          localProds.push({
-            id: `prod-${Date.now()}`,
-            ...productData,
-            created_at: new Date().toISOString()
-          });
-        }
-        localStorage.setItem('local_products', JSON.stringify(localProds));
-        localStorage.setItem('local_db_seeded', 'true');
       }
 
       closeModal();
@@ -205,10 +188,6 @@ export default function Inventory({
           .delete()
           .eq('id', id);
         if (error) throw error;
-      } else {
-        let localProds = JSON.parse(localStorage.getItem('local_products') || '[]');
-        localProds = localProds.filter(p => p.id !== id);
-        localStorage.setItem('local_products', JSON.stringify(localProds));
       }
       toast.success('Mahsulot muvaffaqiyatli o\'chirildi.');
       onRefresh();
@@ -318,15 +297,6 @@ export default function Inventory({
         if (isSupabaseConfigured()) {
           const { error } = await supabase.from('products').insert(importedItems);
           if (error) throw error;
-        } else {
-          let localProds = JSON.parse(localStorage.getItem('local_products') || '[]');
-          const formatted = importedItems.map((item, idx) => ({
-            id: `prod-imp-${Date.now()}-${idx}`,
-            ...item,
-            created_at: new Date().toISOString()
-          }));
-          localProds = [...formatted, ...localProds];
-          localStorage.setItem('local_products', JSON.stringify(localProds));
         }
 
         toast.success(`${importedItems.length} ta tovar muvaffaqiyatli import qilindi! 🎉`);

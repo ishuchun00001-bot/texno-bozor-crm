@@ -102,30 +102,6 @@ export default function SalesHistory({
 
         const { error } = await supabase.from('sales').delete().eq('id', saleId);
         if (error) throw error;
-      } else {
-        let localProds = JSON.parse(localStorage.getItem('local_products') || '[]');
-        let localSales = JSON.parse(localStorage.getItem('local_sales') || '[]');
-        let localItems = JSON.parse(localStorage.getItem('local_sale_items') || '[]');
-        let localMovements = JSON.parse(localStorage.getItem('local_inventory_movements') || '[]');
-
-        // Omborni qayta tiklash
-        itemsToDelete.forEach(item => {
-          localProds = localProds.map(p => p.id === item.product_id ? { ...p, stock: (p.stock || 0) + (item.quantity || 1) } : p);
-          
-          localMovements.push({
-            id: `mov-cancel-${Date.now()}`,
-            product_id: item.product_id,
-            movement_type: 'cancellation',
-            quantity: item.quantity || 1,
-            note: `Sotuv bekori ID: #${saleId.substring(0, 8)}`,
-            created_at: new Date().toISOString()
-          });
-        });
-
-        localStorage.setItem('local_products', JSON.stringify(localProds));
-        localStorage.setItem('local_sales', JSON.stringify(localSales.filter(s => s.id !== saleId)));
-        localStorage.setItem('local_sale_items', JSON.stringify(localItems.filter(i => i.sale_id !== saleId)));
-        localStorage.setItem('local_inventory_movements', JSON.stringify(localMovements));
       }
       toast.success("Sotuv bekor qilindi va ombor soni qayta tiklandi! ✅");
       onRefresh();

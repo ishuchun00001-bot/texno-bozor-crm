@@ -135,16 +135,6 @@ export default function Expenses({
       if (isSupabaseConfigured()) {
         const { error } = await supabase.from('expenses').insert([expenseData]);
         if (error) throw error;
-      } else {
-        let local = [];
-        try {
-          const parsed = JSON.parse(localStorage.getItem('local_expenses') || '[]');
-          local = Array.isArray(parsed) ? parsed : [];
-        } catch (err) {
-          local = [];
-        }
-        local.unshift({ id: `exp-${Date.now()}`, ...expenseData });
-        localStorage.setItem('local_expenses', JSON.stringify(local));
       }
 
       toast.success('Xarajat muvaffaqiyatli saqlandi! ✅');
@@ -165,10 +155,6 @@ export default function Expenses({
       if (isSupabaseConfigured()) {
         const { error } = await supabase.from('expenses').delete().eq('id', id);
         if (error) throw error;
-      } else {
-        let local = JSON.parse(localStorage.getItem('local_expenses') || '[]');
-        local = local.filter(e => e.id !== id);
-        localStorage.setItem('local_expenses', JSON.stringify(local));
       }
       toast.success('Xarajat o\'chirildi.');
       onRefresh();

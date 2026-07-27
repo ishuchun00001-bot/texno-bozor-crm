@@ -250,71 +250,73 @@ function App() {
     localStorage.setItem('active_currency', cur);
   };
 
-  const loadLocalStorageData = () => {
-    let localProds = [];
-    let localSales = [];
-    let localItems = [];
-    let localExps = [];
-
-    try {
-      const p = JSON.parse(localStorage.getItem('local_products') || '[]');
-      const s = JSON.parse(localStorage.getItem('local_sales') || '[]');
-      const i = JSON.parse(localStorage.getItem('local_sale_items') || '[]');
-      const e = JSON.parse(localStorage.getItem('local_expenses') || '[]');
-
-      localProds = Array.isArray(p) ? p : [];
-      localSales = Array.isArray(s) ? s : [];
-      localItems = Array.isArray(i) ? i : [];
-      localExps = Array.isArray(e) ? e : [];
-    } catch (err) {
-      console.error("LocalStorage parse error:", err);
-      localProds = [];
-      localSales = [];
-      localItems = [];
-      localExps = [];
-    }
-
-    setProducts(localProds);
-    setSales(localSales);
-    setSaleItems(localItems);
-    setExpenses(localExps);
-  };
-
   const fetchData = async () => {
     setLoading(true);
     try {
       if (isSupabaseConfigured()) {
-        try {
-          const { data: prods, error: err1 } = await supabase.from('products').select('*').order('created_at', { ascending: false });
-          const { data: sls, error: err2 } = await supabase.from('sales').select('*').order('created_at', { ascending: false });
-          const { data: items, error: err3 } = await supabase.from('sale_items').select('*');
-          const { data: exps } = await supabase.from('expenses').select('*').order('created_at', { ascending: false });
+        const [prodsRes, slsRes, itemsRes, expsRes] = await Promise.all([
+          supabase.from('products').select('*').order('created_at', { ascending: false }),
+          supabase.from('sales').select('*').order('created_at', { ascending: false }),
+          supabase.from('sale_items').select('*'),
+          supabase.from('expenses').select('*').order('created_at', { ascending: false })
+        ]);
 
-          if (err1 || err2 || err3) throw err1 || err2 || err3;
+        if (prodsRes.error) console.error("Products fetch error:", prodsRes.error);
+        if (slsRes.error) console.error("Sales fetch error:", slsRes.error);
+        if (itemsRes.error) console.error("Sale items fetch error:", itemsRes.error);
+        if (expsRes.error) console.error("Expenses fetch error:", expsRes.error);
 
-          setProducts(prods || []);
-          setSales(sls || []);
-          setSaleItems(items || []);
-          setExpenses(exps || JSON.parse(localStorage.getItem('local_expenses') || '[]'));
-          setDbError('');
-        } catch (supabaseErr) {
-          console.warn('Supabase-dan yuklashda xatolik yuz berdi. Lokal rejimga o\'tiladi:', supabaseErr.message);
-          setDbError('Supabase ma\'lumotlar bazasida xatolik. Tizim vaqtinchalik offline (lokal) rejimda ishlamoqda.');
-          loadLocalStorageData();
-        }
+        setProducts(prodsRes.data || []);
+        setSales(slsRes.data || []);
+        setSaleItems(itemsRes.data || []);
+        setExpenses(expsRes.data || []);
+        setDbError('');
       } else {
-        loadLocalStorageData();
+        setDbError('Supabase API kalitlari sozlanmagan!');
       }
     } catch (error) {
       console.error('Ma\'lumotlarni yuklashda umumiy xatolik:', error.message);
+      setDbError('Supabase ma\'lumotlar bazasiga ulanishda xatolik yuz berdi.');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (isAuthenticated) {
-      fetchData();
+    if (!isAuthenticated) return;
+
+    // Legacy business cache purge
+    const LEGACY_KEYS = [
+      'local_products',
+      'local_sales',
+      'local_sale_items',
+      'local_expenses',
+      'local_debtors',
+      'local_inventory_movements',
+      'local_db_seeded'
+    ];
+    LEGACY_KEYS.forEach(k => localStorage.removeItem(k));
+
+    fetchData();
+
+    // Supabase Realtime Channel for instant cross-device data synchronization
+    if (isSupabaseConfigured()) {
+      const channel = supabase
+        .channel('cross-device-sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => fetchData())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'sales' }, () => fetchData())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'sale_items' }, () => fetchData())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, () => fetchData())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'debtors' }, () => fetchData())
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('⚡ Supabase Realtime active for cross-device sync');
+          }
+        });
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [isAuthenticated]);
 
