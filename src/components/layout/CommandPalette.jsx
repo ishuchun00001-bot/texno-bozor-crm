@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { Search, X, Package, Users, Receipt, Calculator, BarChart3, ArrowRight } from 'lucide-react';
+import { hasPermission } from '../../utils/rbac';
 
 export default function CommandPalette({
   isOpen,
   onClose,
   products = [],
-  onNavigateTab
+  onNavigateTab,
+  userRole = 'admin'
 }) {
   const [query, setQuery] = useState('');
 
@@ -30,13 +30,18 @@ export default function CommandPalette({
     .filter(p => p && p.name && p.name.toLowerCase().includes(query.toLowerCase()))
     .slice(0, 5);
 
-  const quickNav = [
+  const allQuickNav = [
     { label: "Asosiy Panelga o'tish", tab: 'dashboard', icon: BarChart3 },
+    { label: "Sotuvga o'tish", tab: 'sotuv', icon: Package },
     { label: "Tovarlar Omboriga o'tish", tab: 'inventory', icon: Package },
     { label: "Sotuvlar Tarixiga o'tish", tab: 'sales', icon: Receipt },
     { label: "Kredit Kalkulyatoriga o'tish", tab: 'calculator', icon: Calculator },
     { label: "Nasiyachilarga o'tish", tab: 'debtors', icon: Users }
-  ].filter(item => item.label.toLowerCase().includes(query.toLowerCase()));
+  ];
+
+  const quickNav = allQuickNav
+    .filter(item => hasPermission(userRole, item.tab))
+    .filter(item => item.label.toLowerCase().includes(query.toLowerCase()));
 
   return (
     <div className="modal-backdrop" onClick={onClose}>

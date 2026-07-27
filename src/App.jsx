@@ -8,6 +8,8 @@ import Debtors from './components/Debtors';
 import Expenses from './components/Expenses';
 import CreditCalculator from './components/CreditCalculator';
 import Analytics from './components/Analytics';
+import SettingsModal from './components/SettingsModal';
+import AccessDenied from './components/AccessDenied';
 import TelegramSettingsModal, { sendDailySummaryReport } from './components/TelegramSettingsModal';
 import FloatingDock from './components/FloatingDock';
 import Topbar from './components/layout/Topbar';
@@ -18,6 +20,8 @@ import { ToastProvider, useToast } from './components/Toast';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { DEFAULT_RATES, fetchExchangeRates } from './utils/currency';
 import { validateSecureSession, clearSecureSession } from './utils/security';
+import { hasPermission, getInitialTabForRole } from './utils/rbac';
+import { logAuditEvent } from './utils/audit';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -112,13 +116,28 @@ function App() {
   const toast = useToast();
   const [currentStore, setCurrentStore] = useState('all'); // 'all', 'texno', 'moto'
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard', 'inventory', 'sales', 'debtors', 'calculator', 'analytics'
+  const [userRole, setUserRole] = useState(() => localStorage.getItem('tb_user_role') || 'admin');
+  const [username, setUsername] = useState(() => localStorage.getItem('tb_user_name') || 'admin');
+  
+  const [activeTab, setActiveTab] = useState(() => getInitialTabForRole(localStorage.getItem('tb_user_role') || 'admin'));
   const [theme, setTheme] = useState(() => localStorage.getItem('app_theme') || 'dark');
+  
+  // Currency management states
+  const [currencyMode, setCurrencyMode] = useState(() => localStorage.getItem('tb_currency_mode') || 'auto');
+  const [manualRates, setManualRates] = useState(() => {
+    const saved = localStorage.getItem('tb_manual_rates');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (_e) {}
+    }
+    return DEFAULT_RATES;
+  });
   const [rates, setRates] = useState(DEFAULT_RATES);
   const [currency, setCurrency] = useState('USD'); // 'USD', 'UZS', 'RUB', 'EUR'
   const [ratesLoading, setRatesLoading] = useState(false);
-  const [ratesStatus, setRatesStatus] = useState('syncing'); // 'syncing', 'synced', 'error'
+  const [ratesStatus, setRatesStatus] = useState('synced'); // 'syncing', 'synced', 'error'
+
   const [isTelegramModalOpen, setIsTelegramModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => window.innerWidth < 1100);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
@@ -151,8 +170,14 @@ function App() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const isValid = await validateSecureSession();
-      setIsAuthenticated(isValid);
+      const authRes = await validateSecureSession();
+      if (authRes && authRes.valid) {
+        setIsAuthenticated(true);
+        setUserRole(authRes.role || 'admin');
+        setUsername(authRes.username || 'admin');
+      } else {
+        setIsAuthenticated(false);
+      }
     };
     checkAuth();
 
@@ -160,35 +185,47 @@ function App() {
     if (savedCurrency) {
       setCurrency(savedCurrency);
     }
-
-    const loadRates = async () => {
-      setRatesLoading(true);
-      setRatesStatus('syncing');
-      
-      const savedRatesStr = localStorage.getItem('exchange_rates');
-      if (savedRatesStr) {
-        try {
-          setRates(JSON.parse(savedRatesStr));
-        } catch (e) {
-          console.error(e);
-        }
-      }
-
-      try {
-        const fetchedRates = await fetchExchangeRates();
-        setRates(fetchedRates);
-        localStorage.setItem('exchange_rates', JSON.stringify(fetchedRates));
-        setRatesStatus('synced');
-      } catch (err) {
-        console.warn("Kurslarni yuklashda xatolik. Avvalgi kurslar saqlanadi:", err.message);
-        setRatesStatus('error');
-      } finally {
-        setRatesLoading(false);
-      }
-    };
-
-    loadRates();
   }, []);
+
+  // Exchange rate synchronization (Manual vs Auto)
+  const refreshRates = async () => {
+    if (currencyMode === 'manual') {
+      setRates(manualRates);
+      setRatesStatus('synced');
+      return;
+    }
+
+    setRatesLoading(true);
+    setRatesStatus('syncing');
+    try {
+      const fetchedRates = await fetchExchangeRates();
+      setRates(fetchedRates);
+      localStorage.setItem('exchange_rates', JSON.stringify(fetchedRates));
+      setRatesStatus('synced');
+    } catch (err) {
+      console.warn("Kurslarni yuklashda xatolik. Avvalgi kurslar saqlanadi:", err.message);
+      setRatesStatus('error');
+    } finally {
+      setRatesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshRates();
+  }, [currencyMode, manualRates]);
+
+  const handleSaveManualRates = (newRates, newMode) => {
+    setManualRates(newRates);
+    setCurrencyMode(newMode);
+    localStorage.setItem('tb_manual_rates', JSON.stringify(newRates));
+    localStorage.setItem('tb_currency_mode', newMode);
+    if (newMode === 'manual') {
+      setRates(newRates);
+      setRatesStatus('synced');
+    } else {
+      refreshRates();
+    }
+  };
 
   // ⏰ Har kuni soat 23:00 da Telegramga avtomatik kunlik savdo va ombor hisobotini yuborish
   useEffect(() => {
@@ -219,30 +256,23 @@ function App() {
     return () => clearInterval(intervalId);
   }, [sales, products, expenses, rates, currency]);
 
-  const handleLoginSuccess = () => {
+  const handleLoginSuccess = (role, name) => {
     setIsAuthenticated(true);
+    setUserRole(role);
+    setUsername(name);
+    const initTab = getInitialTabForRole(role);
+    setActiveTab(initTab);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await logAuditEvent({
+      user: username,
+      role: userRole,
+      action: 'LOGOUT',
+      details: 'Foydalanuvchi tizimdan chiqdi'
+    });
     clearSecureSession();
     setIsAuthenticated(false);
-  };
-
-  const refreshRates = async () => {
-    setRatesLoading(true);
-    setRatesStatus('syncing');
-    try {
-      const fetchedRates = await fetchExchangeRates();
-      setRates(fetchedRates);
-      localStorage.setItem('exchange_rates', JSON.stringify(fetchedRates));
-      setRatesStatus('synced');
-      if (toast && toast.success) toast.success("Valyuta kurslari muvaffaqiyatli yangilandi");
-    } catch (err) {
-      if (toast && toast.error) toast.error("Valyuta kurslarini yangilashda xatolik yuz berdi: " + err.message);
-      setRatesStatus('error');
-    } finally {
-      setRatesLoading(false);
-    }
   };
 
   const handleCurrencyChange = (cur) => {
@@ -329,6 +359,16 @@ function App() {
   const filteredSales = (sales || []).filter(s => s && (currentStore === 'all' || (s.store_type || 'texno') === currentStore));
 
   const renderActiveScreen = () => {
+    // Permission check for route protection
+    if (!hasPermission(userRole, activeTab)) {
+      return (
+        <AccessDenied
+          requiredRole="Administrator"
+          onBackToAllowed={() => setActiveTab(getInitialTabForRole(userRole))}
+        />
+      );
+    }
+
     switch (activeTab) {
       case 'dashboard':
         return (
@@ -436,6 +476,7 @@ function App() {
         isCollapsed={isSidebarCollapsed}
         setIsCollapsed={setIsSidebarCollapsed}
         onOpenTelegramModal={() => setIsTelegramModalOpen(true)}
+        userRole={userRole}
       />
 
       {/* Main Wrapper Layout */}
@@ -454,8 +495,11 @@ function App() {
           currency={currency}
           onCurrencyChange={handleCurrencyChange}
           onOpenTelegramModal={() => setIsTelegramModalOpen(true)}
+          onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
           onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
           onLogout={handleLogout}
+          userRole={userRole}
+          username={username}
         />
 
         {/* Dynamic Content Body */}
@@ -498,12 +542,26 @@ function App() {
         onClose={() => setIsTelegramModalOpen(false)}
       />
 
+      {/* Settings Modal (Currency & RBAC User Management) */}
+      <SettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        currencyMode={currencyMode}
+        onCurrencyModeChange={setCurrencyMode}
+        manualRates={manualRates}
+        onSaveManualRates={handleSaveManualRates}
+        currentRates={rates}
+        currentUser={username}
+        userRole={userRole}
+      />
+
       {/* Command Palette */}
       <CommandPalette
         isOpen={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}
         products={products}
         onNavigateTab={(tab) => setActiveTab(tab)}
+        userRole={userRole}
       />
     </div>
   );

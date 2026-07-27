@@ -10,7 +10,8 @@ import {
   ChevronDown, 
   Store,
   Layers,
-  Zap
+  Zap,
+  Settings
 } from 'lucide-react';
 
 export default function Topbar({
@@ -26,9 +27,10 @@ export default function Topbar({
   currency,
   onCurrencyChange,
   onOpenTelegramModal,
+  onOpenSettingsModal,
   onOpenCommandPalette,
   onLogout,
-  userRole = "Texno Bozor"
+  userRole = "admin"
 }) {
   const [isRateMenuOpen, setIsRateMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -251,6 +253,29 @@ export default function Topbar({
           <Send size={13} /> Bot
         </button>
 
+        {/* Settings Button (Admin Only) */}
+        {userRole === 'admin' && (
+          <button
+            onClick={onOpenSettingsModal}
+            title="Tizim Sozlamalari & Valyuta"
+            style={{
+              padding: '5px 10px',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--card-border)',
+              background: 'var(--bg-secondary)',
+              color: 'var(--brand-gold)',
+              fontSize: '12px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <Settings size={13} /> Sozlamalar
+          </button>
+        )}
+
         {/* Theme Switcher Toggle */}
         <button
           onClick={onToggleTheme}
@@ -277,25 +302,35 @@ export default function Topbar({
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              background: 'transparent',
-              border: 'none',
+              gap: '8px',
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--card-border)',
+              borderRadius: 'var(--radius-md)',
+              padding: '4px 8px 4px 4px',
               cursor: 'pointer'
             }}
           >
             <div style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: 'var(--radius-md)',
-              background: 'var(--brand-accent)',
+              width: '28px',
+              height: '28px',
+              borderRadius: '6px',
+              background: userRole === 'admin' ? 'var(--brand-gold)' : 'var(--brand-accent)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#ffffff',
-              fontWeight: '700',
-              fontSize: '13px'
+              color: '#000',
+              fontWeight: '800',
+              fontSize: '12px'
             }}>
-              A
+              {(userRole === 'admin' ? 'A' : 'S')}
+            </div>
+            <div style={{ textAlign: 'left', lineHeight: 1.1 }}>
+              <div style={{ fontSize: '11.5px', fontWeight: '700', color: 'var(--text-primary)' }}>
+                {userRole === 'admin' ? 'Admin' : (userRole === 'employee' ? 'Sotuvchi' : userRole)}
+              </div>
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                {userRole === 'admin' ? 'Administrator' : 'Sotuvchi (Xodim)'}
+              </div>
             </div>
           </button>
 
@@ -304,17 +339,21 @@ export default function Topbar({
               position: 'absolute',
               top: 'calc(100% + 6px)',
               right: 0,
-              width: '160px',
+              width: '180px',
               background: 'var(--card-bg)',
               border: '1px solid var(--card-border)',
               borderRadius: 'var(--radius-md)',
-              padding: '6px',
+              padding: '8px',
               boxShadow: 'var(--shadow-lg)',
               zIndex: 500
             }}>
-              <div style={{ padding: '6px 8px', borderBottom: '1px solid var(--card-border)', marginBottom: '4px' }}>
-                <div style={{ fontSize: '12.5px', fontWeight: '700', color: 'var(--text-primary)' }}>Admin</div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{userRole}</div>
+              <div style={{ padding: '6px 8px', borderBottom: '1px solid var(--card-border)', marginBottom: '6px' }}>
+                <div style={{ fontSize: '12.5px', fontWeight: '700', color: 'var(--text-primary)' }}>
+                  {userRole === 'admin' ? 'Administrator' : 'Sotuvchi (Xodim)'}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--brand-accent)', fontWeight: '600', marginTop: '2px' }}>
+                  Rol: {userRole === 'admin' ? '👑 Admin' : '👤 Sotuvchi'}
+                </div>
               </div>
               <button
                 onClick={onLogout}
@@ -323,7 +362,7 @@ export default function Topbar({
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
-                  padding: '6px 8px',
+                  padding: '8px',
                   background: 'transparent',
                   border: 'none',
                   color: 'var(--danger)',

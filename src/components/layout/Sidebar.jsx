@@ -13,14 +13,17 @@ import {
   ChevronRight 
 } from 'lucide-react';
 
+import { hasPermission } from '../../utils/rbac';
+
 export default function Sidebar({
   activeTab,
   setActiveTab,
   isCollapsed,
   setIsCollapsed,
-  onOpenTelegramModal
+  onOpenTelegramModal,
+  userRole = 'admin'
 }) {
-  const menuItems = [
+  const allMenuItems = [
     { id: 'dashboard', label: 'Asosiy Panel', icon: LayoutDashboard },
     { id: 'sotuv', label: 'Sotuv', icon: ShoppingCart },
     { id: 'inventory', label: 'Tovarlar Ombori', icon: Package },
@@ -30,6 +33,8 @@ export default function Sidebar({
     { id: 'debtors', label: 'Nasiya va Qarzlar', icon: Users },
     { id: 'analytics', label: 'Tahlillar', icon: BarChart3 }
   ];
+
+  const menuItems = allMenuItems.filter(item => hasPermission(userRole, item.id));
 
   return (
     <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''} no-print`}>
@@ -92,16 +97,18 @@ export default function Sidebar({
             );
           })}
 
-          {/* Telegram Action Item */}
-          <li
-            className="sidebar-item"
-            onClick={onOpenTelegramModal}
-            style={{ color: 'var(--brand-accent)' }}
-            title={isCollapsed ? "Telegram Bot" : undefined}
-          >
-            <Send size={17} />
-            {!isCollapsed && <span>Telegram Bot</span>}
-          </li>
+          {/* Telegram Action Item (Admin only) */}
+          {userRole === 'admin' && (
+            <li
+              className="sidebar-item"
+              onClick={onOpenTelegramModal}
+              style={{ color: 'var(--brand-accent)' }}
+              title={isCollapsed ? "Telegram Bot" : undefined}
+            >
+              <Send size={17} />
+              {!isCollapsed && <span>Telegram Bot</span>}
+            </li>
+          )}
         </ul>
       </div>
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Eye, EyeOff, KeyRound, AlertOctagon } from 'lucide-react';
-import { hashString, TARGET_HASH, createSecureSession } from '../utils/security';
+import { ShieldCheck, Eye, EyeOff, KeyRound, User, AlertOctagon } from 'lucide-react';
+import { hashString, TARGET_HASH, createSecureSession, getUsers } from '../utils/security';
+import { logAuditEvent } from '../utils/audit';
 import Button from './ui/Button';
 import Card from './ui/Card';
 
@@ -8,6 +9,7 @@ const MAX_ATTEMPTS = 5;
 const LOCKOUT_TIME = 15 * 60 * 1000;
 
 export default function Login({ onLoginSuccess }) {
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -59,19 +61,49 @@ export default function Login({ onLoginSuccess }) {
     if (lockoutTime) return;
 
     setError('');
+    const inputHash = await hashString(password);
+    const users = getUsers();
+    const cleanUsername = username.trim();
 
     try {
-      const inputHash = await hashString(password);
+      // 1. Direct check against admin hash fallback (if username empty or admin)
+      let foundUser = users.find(u => u.username.toLowerCase() === cleanUsername.toLowerCase());
 
-      if (inputHash === TARGET_HASH) {
+      if (!foundUser && (cleanUsername.toLowerCase() === 'admin' || cleanUsername === '')) {
+        if (inputHash === TARGET_HASH) {
+          foundUser = { username: 'admin', role: 'admin', name: 'Administrator' };
+        }
+      }
+
+      // Check employee test user Texno555 / Texno555 fallback
+      if (!foundUser && cleanUsername === 'Texno555' && password === 'Texno555') {
+        foundUser = { username: 'Texno555', role: 'employee', name: 'Sotuvchi (Texno555)' };
+      }
+
+      if (foundUser && (foundUser.passwordHash === inputHash || (foundUser.username === 'Texno555' && password === 'Texno555') || (foundUser.username === 'admin' && inputHash === TARGET_HASH))) {
         localStorage.setItem('login_attempts', '0');
         localStorage.removeItem('lockout_until');
-        await createSecureSession('admin');
-        onLoginSuccess();
+        
+        await createSecureSession(foundUser.role, foundUser.username);
+        await logAuditEvent({
+          user: foundUser.username,
+          role: foundUser.role,
+          action: 'LOGIN_SUCCESS',
+          details: `Foydalanuvchi tizimga kirdi (Rol: ${foundUser.role})`
+        });
+
+        onLoginSuccess(foundUser.role, foundUser.username);
       } else {
         const nextAttempts = attempts + 1;
         setAttempts(nextAttempts);
         localStorage.setItem('login_attempts', nextAttempts.toString());
+
+        await logAuditEvent({
+          user: cleanUsername || 'Noma\'lum',
+          role: 'guest',
+          action: 'LOGIN_FAILED',
+          details: `Ketma-ket ${nextAttempts}-marta noto'g'ri login/parol kiritildi`
+        });
 
         if (nextAttempts >= MAX_ATTEMPTS) {
           const blockUntil = Date.now() + LOCKOUT_TIME;
@@ -80,7 +112,7 @@ export default function Login({ onLoginSuccess }) {
           setRemainingTime(Math.ceil((blockUntil - Date.now()) / 1000));
           setError(`Brute-force xavfi! Ketma-ket ${MAX_ATTEMPTS} marta noto'g'ri parol kiritildi. Tizim vaqtinchalik bloklandi.`);
         } else {
-          setError(`Noto'g'ri parol! Qolgan urinishlar soni: ${MAX_ATTEMPTS - nextAttempts}`);
+          setError(`Noto'g'ri login va parol! Qolgan urinishlar: ${MAX_ATTEMPTS - nextAttempts}`);
         }
       }
     } catch (err) {
@@ -115,7 +147,7 @@ export default function Login({ onLoginSuccess }) {
         boxShadow: 'var(--shadow-lg)'
       }}>
         {/* Brand Header */}
-        <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
           <div style={{
             width: '56px',
             height: '56px',
@@ -171,9 +203,27 @@ export default function Login({ onLoginSuccess }) {
         ) : null}
 
         {/* Form */}
-        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">Tizimga Kirish Paroli</label>
+            <label className="form-label">Foydalanuvchi Logini</label>
+            <div style={{ position: 'relative' }}>
+              <User size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Login... (Masalan: Texno555 yoki admin)"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                disabled={Boolean(lockoutTime)}
+                required
+                autoFocus
+                style={{ paddingLeft: '38px' }}
+              />
+            </div>
+          </div>
+
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label">Parol</label>
             <div style={{ position: 'relative' }}>
               <KeyRound size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
               <input
@@ -184,7 +234,6 @@ export default function Login({ onLoginSuccess }) {
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={Boolean(lockoutTime)}
                 required
-                autoFocus
                 style={{ paddingLeft: '38px', paddingRight: '40px' }}
               />
               <button
@@ -210,14 +259,16 @@ export default function Login({ onLoginSuccess }) {
             type="submit"
             variant="primary"
             disabled={Boolean(lockoutTime) || !password}
-            style={{ width: '100%', padding: '10px', justifyContent: 'center' }}
+            style={{ width: '100%', padding: '10px', justifyContent: 'center', marginTop: '6px' }}
           >
             <ShieldCheck size={16} /> Tizimga Kirish
           </Button>
         </form>
 
-        <div style={{ textAlign: 'center', marginTop: '20px', fontSize: '11px', color: 'var(--text-muted)' }}>
-          Kriptografik 256-bit xavfsiz sessiya bilan himoyalangan 🔒
+        <div style={{ marginTop: '20px', padding: '10px', borderRadius: '8px', background: 'var(--bg-secondary)', border: '1px solid var(--card-border)', fontSize: '11px', color: 'var(--text-muted)' }}>
+          <div>💡 <strong>Dastlabki Test Hisoblar:</strong></div>
+          <div style={{ marginTop: '4px' }}>• Admin: <code>admin</code> / <code>Texnoilhom123</code></div>
+          <div>• Sotuvchi (Xodim): <code>Texno555</code> / <code>Texno555</code></div>
         </div>
       </Card>
     </div>
