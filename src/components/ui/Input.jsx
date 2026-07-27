@@ -29,6 +29,10 @@ export default function Input({
         id={inputId}
         type={type}
         className={`form-control ${error ? 'border-danger' : ''} ${className}`}
+        onFocus={(e) => {
+          try { e.target.select(); } catch (err) {}
+          if (props.onFocus) props.onFocus(e);
+        }}
         {...props}
       />
       {error && (

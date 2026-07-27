@@ -109,15 +109,24 @@ export default function SaleModule({
     }
   };
 
+  const cleanNumericInput = (val) => {
+    if (typeof val === 'string') {
+      return val.replace(/^0+(?=\d)/, '');
+    }
+    return val;
+  };
+
   const updateItemPrice = (id, displayVal) => {
     const rate = rates[currency] || 1;
-    const valInDisplayCurrency = Math.max(0, parseFloat(displayVal) || 0);
+    const clean = cleanNumericInput(displayVal);
+    const valInDisplayCurrency = Math.max(0, parseFloat(clean) || 0);
     const usdVal = valInDisplayCurrency / rate;
     setCart(cart.map(item => item.id === id ? { ...item, selling_price_usd: usdVal } : item));
   };
 
   const updateItemDiscount = (id, displayVal) => {
-    const valInDisplayCurrency = Math.max(0, parseFloat(displayVal) || 0);
+    const clean = cleanNumericInput(displayVal);
+    const valInDisplayCurrency = Math.max(0, parseFloat(clean) || 0);
     setCart(cart.map(item => item.id === id ? { ...item, discount_display: valInDisplayCurrency } : item));
   };
 
@@ -199,8 +208,9 @@ export default function SaleModule({
   const totals = getOrderTotals();
 
   const handlePaymentChange = (methodId, val) => {
-    const num = Math.max(0, parseFloat(val) || 0);
-    setPayments(prev => ({ ...prev, [methodId]: num }));
+    const clean = cleanNumericInput(val);
+    const num = Math.max(0, parseFloat(clean) || 0);
+    setPayments(prev => ({ ...prev, [methodId]: clean === '' ? '' : num }));
   };
 
   const handleCompleteSale = async (e) => {
@@ -496,6 +506,7 @@ export default function SaleModule({
                             className="form-control"
                             value={Math.round((item.selling_price_usd || 0) * (rates[currency] || 1))}
                             onChange={(e) => updateItemPrice(item.id, e.target.value)}
+                            onFocus={(e) => e.target.select()}
                             style={{ padding: '3px 4px', fontSize: '11px', height: '26px' }}
                           />
                         </div>
@@ -507,6 +518,7 @@ export default function SaleModule({
                             className="form-control"
                             value={item.discount_display || 0}
                             onChange={(e) => updateItemDiscount(item.id, e.target.value)}
+                            onFocus={(e) => e.target.select()}
                             style={{ padding: '3px 4px', fontSize: '11px', height: '26px' }}
                           />
                         </div>
