@@ -65,3 +65,42 @@ export const PAYMENT_METHODS = [
   { id: 'alif', label: 'Alif', color: '#2563eb' },
   { id: 'mixed', label: '🔀 Aralash', color: '#ec4899' }
 ];
+
+/**
+ * Formats Uzbek phone numbers to +998 XX XXX-XX-XX
+ */
+export const formatUzbekPhone = (raw) => {
+  if (!raw) return '+998 ';
+  let digits = String(raw).replace(/\D/g, '');
+  if (digits.startsWith('998')) {
+    digits = digits.slice(3);
+  }
+  digits = digits.slice(0, 9);
+
+  let formatted = '+998 ';
+  if (digits.length > 0) formatted += digits.slice(0, 2);
+  if (digits.length > 2) formatted += ' ' + digits.slice(2, 5);
+  if (digits.length > 5) formatted += '-' + digits.slice(5, 7);
+  if (digits.length > 7) formatted += '-' + digits.slice(7, 9);
+
+  return formatted;
+};
+
+/**
+ * Formats prices with space thousand separators (e.g. 1 500 000)
+ */
+export const formatThousand = (val) => {
+  if (val === null || val === undefined || val === '' || val === 0) return '';
+  const digits = String(val).replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+  if (!digits) return '';
+  return Number(digits).toLocaleString('ru-RU');
+};
+
+/**
+ * Parses formatted prices back to numeric integer
+ */
+export const parseThousand = (val) => {
+  if (val === null || val === undefined || val === '') return '';
+  const digits = String(val).replace(/\D/g, '');
+  return digits ? parseInt(digits, 10) : '';
+};

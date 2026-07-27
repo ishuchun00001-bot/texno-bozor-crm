@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import { formatCurrency, DEFAULT_RATES } from '../utils/currency';
-import { getCommissionRates } from '../constants';
+import { getCommissionRates, formatUzbekPhone, formatThousand, parseThousand } from '../constants';
 import { sendTelegramNotification } from './TelegramSettingsModal';
 import { useToast } from './Toast';
 import Button from './ui/Button';
@@ -107,6 +107,15 @@ export default function SaleModule({
     } else {
       setCart(cart.map(i => i.id === id ? { ...i, quantity: newQty } : i));
     }
+  };
+
+  const updateQuantityExact = (id, exactQty) => {
+    const item = cart.find(i => i.id === id);
+    const prod = products.find(p => p.id === id);
+    if (!item || !prod) return;
+
+    const validatedQty = Math.max(1, Math.min(exactQty, prod.stock));
+    setCart(cart.map(i => i.id === id ? { ...i, quantity: validatedQty } : i));
   };
 
   const cleanNumericInput = (val) => {
@@ -406,9 +415,12 @@ export default function SaleModule({
               />
               <Input
                 label="Telefon Raqam"
-                placeholder="+998 90 123 45 67"
+                placeholder="+998 90 123-45-67"
                 value={customerPhone}
-                onChange={(e) => setCustomerPhone(e.target.value)}
+                onChange={(e) => setCustomerPhone(formatUzbekPhone(e.target.value))}
+                onFocus={() => {
+                  if (!customerPhone) setCustomerPhone('+998 ');
+                }}
               />
             </div>
           </Card>
@@ -498,35 +510,63 @@ export default function SaleModule({
                         </button>
                       </div>
 
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px', alignItems: 'center' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 0.8fr', gap: '8px', alignItems: 'center' }}>
                         <div>
-                          <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block' }}>Narx ({currency}):</span>
+                          <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginBottom: '2px', fontWeight: '600' }}>Narx ({currency}):</span>
                           <input
-                            type="number"
+                            type="text"
                             className="form-control"
-                            value={Math.round((item.selling_price_usd || 0) * (rates[currency] || 1))}
-                            onChange={(e) => updateItemPrice(item.id, e.target.value)}
+                            placeholder={`Sotish narxini kiriting (${currency})`}
+                            value={formatThousand(Math.round((item.selling_price_usd || 0) * (rates[currency] || 1)))}
+                            onChange={(e) => updateItemPrice(item.id, parseThousand(e.target.value))}
                             onFocus={(e) => e.target.select()}
-                            style={{ padding: '3px 4px', fontSize: '11px', height: '26px' }}
+                            style={{ padding: '3px 6px', fontSize: '11.5px', height: '32px', fontWeight: '600' }}
                           />
                         </div>
 
                         <div>
-                          <span style={{ fontSize: '10px', color: 'var(--warning)', display: 'block' }}>Chegirma ({currency}):</span>
+                          <span style={{ fontSize: '10px', color: 'var(--warning)', display: 'block', marginBottom: '2px', fontWeight: '600' }}>Chegirma ({currency}):</span>
                           <input
-                            type="number"
+                            type="text"
                             className="form-control"
-                            value={item.discount_display || 0}
-                            onChange={(e) => updateItemDiscount(item.id, e.target.value)}
+                            placeholder="0"
+                            value={formatThousand(item.discount_display)}
+                            onChange={(e) => updateItemDiscount(item.id, parseThousand(e.target.value))}
                             onFocus={(e) => e.target.select()}
-                            style={{ padding: '3px 4px', fontSize: '11px', height: '26px' }}
+                            style={{ padding: '3px 6px', fontSize: '11.5px', height: '32px', fontWeight: '600' }}
                           />
                         </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
-                          <button onClick={() => updateQuantity(item.id, -1)} style={{ width: '22px', height: '22px', borderRadius: '4px', border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: '#fff', cursor: 'pointer' }}>-</button>
-                          <span style={{ fontSize: '12px', fontWeight: '700', width: '18px', textAlign: 'center' }}>{item.quantity}</span>
-                          <button onClick={() => updateQuantity(item.id, 1)} style={{ width: '22px', height: '22px', borderRadius: '4px', border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: '#fff', cursor: 'pointer' }}>+</button>
+                        <div>
+                          <span style={{ fontSize: '10px', color: 'var(--text-primary)', display: 'block', marginBottom: '2px', fontWeight: '600', textAlign: 'center' }}>Miqdor:</span>
+                          <input
+                            type="number"
+                            className="form-control"
+                            min="1"
+                            max={item.stock}
+                            value={item.quantity}
+                            onChange={(e) => {
+                              const raw = e.target.value;
+                              if (raw === '') return;
+                              const val = parseInt(raw, 10);
+                              if (isNaN(val) || val < 1) {
+                                updateQuantityExact(item.id, 1);
+                              } else if (val > item.stock) {
+                                toast.warning(`Omborda faqat ${item.stock} dona mahsulot bor!`);
+                                updateQuantityExact(item.id, item.stock);
+                              } else {
+                                updateQuantityExact(item.id, val);
+                              }
+                            }}
+                            onWheel={(e) => e.target.blur()}
+                            onKeyDown={(e) => {
+                              if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                                e.preventDefault();
+                              }
+                            }}
+                            onFocus={(e) => e.target.select()}
+                            style={{ padding: '3px 4px', fontSize: '12px', height: '32px', textAlign: 'center', fontWeight: '700' }}
+                          />
                         </div>
                       </div>
                     </div>
@@ -567,12 +607,12 @@ export default function SaleModule({
                       <div style={{ fontSize: '11.5px', fontWeight: '700', color: 'var(--text-primary)' }}>Aralash Summalarni Kiritish ({currency}):</div>
                       
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                        <Input label="Naqd" type="number" value={payments.cash} onChange={(e) => handlePaymentChange('cash', e.target.value)} />
-                        <Input label="Karta (2% bank)" type="number" value={payments.card} onChange={(e) => handlePaymentChange('card', e.target.value)} />
-                        <Input label="Nasiya (5% xizmat)" type="number" value={payments.nasiya} onChange={(e) => handlePaymentChange('nasiya', e.target.value)} />
-                        <Input label="Kredit" type="number" value={payments.kredit} onChange={(e) => handlePaymentChange('kredit', e.target.value)} />
-                        <Input label="Uzum" type="number" value={payments.uzum} onChange={(e) => handlePaymentChange('uzum', e.target.value)} />
-                        <Input label="Alif" type="number" value={payments.alif} onChange={(e) => handlePaymentChange('alif', e.target.value)} />
+                        <Input label="Naqd" type="text" value={formatThousand(payments.cash)} onChange={(e) => handlePaymentChange('cash', parseThousand(e.target.value))} />
+                        <Input label="Karta (2% bank)" type="text" value={formatThousand(payments.card)} onChange={(e) => handlePaymentChange('card', parseThousand(e.target.value))} />
+                        <Input label="Nasiya (5% xizmat)" type="text" value={formatThousand(payments.nasiya)} onChange={(e) => handlePaymentChange('nasiya', parseThousand(e.target.value))} />
+                        <Input label="Kredit" type="text" value={formatThousand(payments.kredit)} onChange={(e) => handlePaymentChange('kredit', parseThousand(e.target.value))} />
+                        <Input label="Uzum" type="text" value={formatThousand(payments.uzum)} onChange={(e) => handlePaymentChange('uzum', parseThousand(e.target.value))} />
+                        <Input label="Alif" type="text" value={formatThousand(payments.alif)} onChange={(e) => handlePaymentChange('alif', parseThousand(e.target.value))} />
                       </div>
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 8px', background: 'var(--card-bg)', borderRadius: 'var(--radius-sm)', fontSize: '12px' }}>
