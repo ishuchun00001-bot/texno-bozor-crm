@@ -261,7 +261,10 @@ function App() {
           supabase.from('expenses').select('*').order('created_at', { ascending: false })
         ]);
 
-        if (prodsRes.error) console.error("Products fetch error:", prodsRes.error);
+        if (prodsRes.error) {
+          console.error("Products fetch error:", prodsRes.error);
+          setDbError('Products: ' + prodsRes.error.message);
+        }
         if (slsRes.error) console.error("Sales fetch error:", slsRes.error);
         if (itemsRes.error) console.error("Sale items fetch error:", itemsRes.error);
         if (expsRes.error) console.error("Expenses fetch error:", expsRes.error);
@@ -270,13 +273,15 @@ function App() {
         setSales(slsRes.data || []);
         setSaleItems(itemsRes.data || []);
         setExpenses(expsRes.data || []);
-        setDbError('');
+        if (!prodsRes.error && !slsRes.error) {
+          setDbError('');
+        }
       } else {
         setDbError('Supabase API kalitlari sozlanmagan!');
       }
     } catch (error) {
       console.error('Ma\'lumotlarni yuklashda umumiy xatolik:', error.message);
-      setDbError('Supabase ma\'lumotlar bazasiga ulanishda xatolik yuz berdi.');
+      setDbError('Supabase ma\'lumotlar bazasiga ulanishda xatolik yuz berdi: ' + error.message);
     } finally {
       setLoading(false);
     }
